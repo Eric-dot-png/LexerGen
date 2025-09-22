@@ -1,75 +1,144 @@
-(* 
-file  : MyLexing.ml 
-brief : Provide meta-lexer speciifcation utilities
+(*
+  MyLexing.ml
+  --------------
+  Small helper module used by the lexer driver in `bin/main.ml`.
+
+  Responsibilities:
+  - Provide a lightweight lexing buffer type `lexbuf` (a small cursor-based
+    view over an input string).
+  - Implement very small scanning routines used to identify tokens produced
+    by the meta-lexer (this file intentionally keeps runtime behaviour
+    minimal — the real token definitions live in `Token`).
+
 *)
 
 module MyLexing = struct
   open Token
+  open MyUtil
 
+  (* ------------------------------------------------------------------ *)
+  (* Types and core data structures                                     *)
+  (* ------------------------------------------------------------------ *)
+
+  (** A tiny lexing buffer over an immutable input string.
+      Fields:
+      - [cstream]: the entire input string being scanned.
+      - [stream_index]: current cursor position used for peeking/advancing.
+      - [head_index]: start index of the current lexeme (inclusive).
+      - [tail_index]: end index of the current lexeme (inclusive).
+      - [last_rule]: numerical id of the last matched token/rule.
+  *)
   type lexbuf = {
-    cstream : string; (* stream of characters *)
-    stream_index : int; (* index in the stream *)
-    head_index : int; (* head/read index *)
-    tail_index : int; (* tail/consume index *) 
-    last_rule : int; (* last matched rule *)
- }
+    cstream : string;
+    stream_index : int;
+    head_index : int;
+    tail_index : int;
+    last_rule : int;
+  }
 
-  let matched_of_lexbuf ( buf : lexbuf ) : string = 
-    ( String.sub buf.cstream buf.head_index (buf.tail_index-buf.tail_index) )
+  (* ------------------------------------------------------------------ *)
+  (* Constants / sentinel values                                        *)
+  (* ------------------------------------------------------------------ *)
 
+  (** EOF sentinel character (NUL). Using [char_of_int 0] keeps the type
+      explicit and avoids embedding a literal '\000'. *)
+  let eof = char_of_int 0
+
+  (** Numeric constant representing a non-rule lexbuf *)
+  let no_rule = -1
+  
+  (** Numeric constant representing a dead state *)
+  let dead_state = -1
+
+  (* ------------------------------------------------------------------ *)
+  (* Construction / helpers                                             *)
+  (* ------------------------------------------------------------------ *)
+
+  (** Create an initial lexbuf over [cstream]. *)
+  let lexbuf_of_string (cstream : string) : lexbuf =
+    { cstream=cstream; stream_index = 0; head_index = 0; tail_index = 0; last_rule = no_rule }
+
+  (** return human readable string of [buf]*)
+  let string_of_lexbuf ( buf : lexbuf ) : string =
+    Printf.sprintf "<lexbuf cstream=\"%s\" stream_index=%d head_index=%d tail_index=%d last_rule=%d>"  
+      buf.cstream buf.stream_index buf.head_index buf.tail_index buf.last_rule 
     
-  let eof = (char_of_int 0) (* eof '\0' constant char *)
-  let no_rule = -1 (* no rule constant char *)
-  let dead_state = -1 (* dead state constant char *)
 
-  let lexbuf_of_string ( cstream : string ) : lexbuf = 
-    { cstream=cstream; stream_index = 0; head_index=0; tail_index=0; last_rule= (-1); }
+  (** Return the character under the cursor without advancing. If the
+      cursor is past the end of the input, return [eof]. *)
+  let peek (buf : lexbuf) : char =
+    if buf.stream_index < String.length buf.cstream then
+      buf.cstream.[buf.stream_index]
+    else
+      eof
 
-  let peek ( buf : lexbuf ) : char =
-    if buf.stream_index < (String.length buf.cstream) then
-      buf.cstream.[buf.stream_index] 
-     else eof 
-     
-   let tokenize ( buf : lexbuf ) : Token.token * lexbuf =  
-    let rec scan_state (buf : lexbuf ) : lexbuf = 
-      (* (starting) state that scans for rules *)
-      match (peek buf) with
-        '|' -> 
-          { buf with 
-            tail_index = buf.stream_index; 
-            last_rule = Token.index_of_token( Token.RULE );
-            }
-      | '=' -> 
-        { buf with
-          tail_index = buf.stream_index;
-          last_rule = Token.index_of_token( Token.EQUALS );
-        }
-      | '{' -> 
-        let buf = { buf with stream_index = buf.stream_index+1 } in 
-        code_state 0 buf 
-      | c when c = eof -> { buf with  last_rule =  Token.index_of_token( Token.EOF ); }
-      | _ -> failwith "Not implemented"
-    and code_state (indent : int) (buf : lexbuf) =
-      (* state that handles code block logic *) 
-      match (peek buf) with
-        '{' ->
-        code_state (indent+1) {buf with stream_index=buf.stream_index+1;}
+  (** Extract the last matched lexeme between [head_index] (inclusive) and
+      [tail_index] (exclusive). *)
+  let matched_of_lexbuf (buf : lexbuf) : string =
+    let start = buf.head_index in
+    let len = buf.tail_index - buf.head_index in
+    if len <= 0 then "" else String.sub buf.cstream start len
+
+  (* ------------------------------------------------------------------ *)
+  (* Tokenization pipeline (small state machine)                        *)
+  (* ------------------------------------------------------------------ *)
+
+  (** Scan the input starting at [buf.stream_index] and produce the next
+      token together with an updated buffer. The function is intentionally
+      small and imperative-style: it threads the [lexbuf] through helper
+      states and never mutates shared state. *)
+  let tokenize (buf : lexbuf) : Token.token * lexbuf =
+    (* scan_state: starting scanning state that recognizes top-level tokens *)
+    let rec scan_state (buf : lexbuf) : lexbuf =
+      match peek buf with
+      | '|' ->
+        { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.BAR }
+      | '=' ->
+        { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.EQUALS }
+      | '{' ->
+        (* consume the opening brace and enter code block scanning state *)
+        let buf = { buf with stream_index = buf.stream_index + 1 } in
+        code_state 0 buf
+      | ' ' | '\n' | '\t' -> 
+        let new_index = buf.stream_index + 1 in
+        let buf = {buf with stream_index = new_index; head_index = new_index } in
+        scan_state buf 
+      | c when MyUtil.is_alpha c ->
+        (* consume the opening alphabetical char and enter identifier scanning state *)
+        let buf = { buf with stream_index = buf.stream_index + 1; last_rule = Token.index_of_token ( ID "" )} in
+        id_state buf 
+      | c when c = eof -> 
+        if buf.last_rule = no_rule then 
+          { buf with last_rule = Token.index_of_token Token.EOF }
+        else 
+          buf
+      | c -> failwith (Printf.sprintf "Error: Character %c not handled" c)
+
+    (* code_state: scan a nested { ... } code block, tracking nesting level.
+       When the outermost closing brace is found we record a CODE token. *)
+    and code_state (indent : int) (buf : lexbuf) : lexbuf =
+      match peek buf with
+      | '{' -> code_state (indent + 1) { buf with stream_index = buf.stream_index + 1 }
       | '}' ->
-        if indent = 0 then { buf with 
-          tail_index = buf.stream_index;
-          last_rule  = Token.index_of_token( Token.CODE(""));
-        }
-        else code_state (indent-1) {buf with stream_index=buf.stream_index+1;}
-      | c when c = eof -> failwith "Unmatched '{'" 
-      | _ -> 
-        code_state indent {buf with stream_index=buf.stream_index+1;}  
-    in
-    let buf = { buf with head_index = buf.tail_index; } in 
-    let buf = (scan_state buf) in 
-    let _ = Printf.printf "head_index=%d, tail_Index=%d\n" buf.head_index buf.tail_index in
-    let token = Token.make_token buf.last_rule ( matched_of_lexbuf buf ) in
-    let _ = print_endline "Here..." in
-    let buf = { buf with stream_index = buf.tail_index+1; head_index=buf.tail_index+1} in
-    token,buf 
+        if indent = 0 then
+          { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token (Token.CODE "") }
+        else 
+          code_state (indent - 1) { buf with stream_index = buf.stream_index + 1 }
+      | c when c = eof -> failwith "Unmatched '{'"
+      | _ -> code_state indent { buf with stream_index = buf.stream_index + 1 }    
 
-  end
+    and id_state ( buf : lexbuf ) : lexbuf = 
+      match peek buf with 
+      | c when (MyUtil.is_alnum c) || c = '_' -> 
+        id_state {buf with stream_index = buf.stream_index+1}
+      | _ -> { buf with tail_index = buf.stream_index; }
+
+    in
+    (* Update the buffer with a new head index, and clear the last rule value *)
+    let buf = { buf with head_index = buf.tail_index; last_rule=no_rule } in
+    let buf = scan_state buf in
+    let token = Token.make_token buf.last_rule (matched_of_lexbuf buf) in
+    let buf = { buf with stream_index = buf.tail_index; } in
+    token, buf
+
+end
