@@ -27,7 +27,10 @@ module Token = struct
     | CODE of string
     | STRING of string
     | REGEX of string
-    | ALIAS
+    | AS
+    | EOF_PATT
+    | PARSE
+    | NONE_PATT
     | EOF
 
   (* ------------------------------------------------------------------ *)
@@ -46,8 +49,11 @@ module Token = struct
     | CODE _ -> 4
     | STRING _ -> 5
     | REGEX _ -> 6
-    | ALIAS -> 7
-    | EOF -> 8
+    | AS -> 7
+    | EOF_PATT -> 8
+    | PARSE -> 9
+    | NONE_PATT -> 10
+    | EOF -> 11
 
   (** Construct a token from a numeric index and optional string payload.
       Calling with an unknown index raises [Invalid_argument]. *)
@@ -60,8 +66,11 @@ module Token = struct
     | 4 -> CODE str
     | 5 -> STRING str
     | 6 -> REGEX str
-    | 7 -> ALIAS
-    | 8 -> EOF
+    | 7 -> AS
+    | 8 -> EOF_PATT
+    | 9 -> PARSE
+    | 10 -> NONE_PATT
+    | 11 -> EOF
     | _ -> invalid_arg "Token.make_token: invalid index"
 
   (* ------------------------------------------------------------------ *)
@@ -79,7 +88,11 @@ module Token = struct
     | CODE code -> "CODE(" ^ code ^ ")"
     | STRING s -> "STRING(" ^ s ^ ")"
     | REGEX r -> "REGEX(" ^ r ^ ")"
-    | ALIAS -> "ALIAS"
+    | AS -> "ALIAS"
+    | EOF_PATT -> "EOF_PATT"
+    | PARSE -> "PARSE"
+    | NONE_PATT -> "NONE_PATT"
     | EOF -> "EOF"
+    
 
 end

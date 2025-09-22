@@ -56,9 +56,9 @@ module MyLexing = struct
 
   (** Create an initial lexbuf over [cstream]. *)
   let lexbuf_of_string (cstream : string) : lexbuf =
-    { cstream=cstream; stream_index = 0; head_index = 0; tail_index = 0; last_rule = no_rule }
+    { cstream = cstream; stream_index = 0; head_index = 0; tail_index = 0; last_rule = no_rule }
 
-  (** return human readable string of [buf]*)
+  (** Return human readable string of [buf]*)
   let string_of_lexbuf ( buf : lexbuf ) : string =
     Printf.sprintf "<lexbuf cstream=\"%s\" stream_index=%d head_index=%d tail_index=%d last_rule=%d>"  
       buf.cstream buf.stream_index buf.head_index buf.tail_index buf.last_rule 
@@ -91,28 +91,27 @@ module MyLexing = struct
     (* scan_state: starting scanning state that recognizes top-level tokens *)
     let rec scan_state (buf : lexbuf) : lexbuf =
       match peek buf with
-      | '|' ->
-        { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.BAR }
-      | '=' ->
-        { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.EQUALS }
-      | '{' ->
-        (* consume the opening brace and enter code block scanning state *)
-        let buf = { buf with stream_index = buf.stream_index + 1 } in
-        code_state 0 buf
+      | '|' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.BAR }
+      | '=' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.EQUALS }      
+      | '_' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.NONE_PATT }
+      | '{' -> code_state 0 { buf with stream_index = buf.stream_index + 1 }
+      | '<' -> regex_state '<' { buf with stream_index = buf.stream_index+1 }
+      | '\"' -> string_state '\"' { buf with stream_index = buf.stream_index+1 }
       | ' ' | '\n' | '\t' -> 
+      (
         let new_index = buf.stream_index + 1 in
         let buf = {buf with stream_index = new_index; head_index = new_index } in
         scan_state buf 
-      | c when MyUtil.is_alpha c ->
-        (* consume the opening alphabetical char and enter identifier scanning state *)
-        let buf = { buf with stream_index = buf.stream_index + 1; last_rule = Token.index_of_token ( ID "" )} in
-        id_state buf 
-      | c when c = eof -> 
-        if buf.last_rule = no_rule then 
-          { buf with last_rule = Token.index_of_token Token.EOF }
+      )
+      | c when MyUtil.is_alpha c -> id_state { buf with stream_index = buf.stream_index + 1; last_rule = Token.index_of_token ( ID "" )}
+      | c when c = eof ->
+      (
+        if 
+          buf.last_rule = no_rule then { buf with last_rule = Token.index_of_token Token.EOF }
         else 
           buf
-      | c -> failwith (Printf.sprintf "Error: Character %c not handled" c)
+      )
+      | c -> failwith (Printf.sprintf "Error: Character '%c' unexpected" c)
 
     (* code_state: scan a nested { ... } code block, tracking nesting level.
        When the outermost closing brace is found we record a CODE token. *)
@@ -120,24 +119,61 @@ module MyLexing = struct
       match peek buf with
       | '{' -> code_state (indent + 1) { buf with stream_index = buf.stream_index + 1 }
       | '}' ->
+      (
         if indent = 0 then
           { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token (Token.CODE "") }
         else 
           code_state (indent - 1) { buf with stream_index = buf.stream_index + 1 }
+      )
       | c when c = eof -> failwith "Unmatched '{'"
       | _ -> code_state indent { buf with stream_index = buf.stream_index + 1 }    
-
+    
+    (* id_state: scan as many alphanumeric characters and '_' to form an identifier. 
+       Already consumed a letter. *)
     and id_state ( buf : lexbuf ) : lexbuf = 
       match peek buf with 
-      | c when (MyUtil.is_alnum c) || c = '_' -> 
-        id_state {buf with stream_index = buf.stream_index+1}
+      | c when (MyUtil.is_alnum c) || c = '_' -> id_state {buf with stream_index = buf.stream_index+1}
       | _ -> { buf with tail_index = buf.stream_index; }
 
+    (* regex_state: scan for a regular expression pattern. *)
+    and regex_state (prev : char) ( buf : lexbuf ) : lexbuf =
+      let curr = (peek buf) in
+      match prev, curr with
+      | '\\', '>' -> regex_state curr {buf with stream_index= buf.stream_index+1}
+      | _, '>' -> { buf with tail_index = buf.stream_index+1; last_rule=Token.index_of_token (Token.REGEX "") }
+      | _, c when c = eof -> failwith "Unmatched '<'"
+      | _ -> regex_state curr {buf with stream_index= buf.stream_index+1}
+
+    and string_state (prev : char) ( buf : lexbuf ) : lexbuf =
+      let curr = (peek buf) in
+      match prev, curr with
+      | '\\', '\"' -> string_state curr {buf with stream_index= buf.stream_index+1}
+      | _, '\"' -> { buf with tail_index = buf.stream_index+1; last_rule=Token.index_of_token (Token.STRING "") }
+      | _, c when c = eof -> failwith "Unmatched '\"'"
+      | _ -> string_state curr {buf with stream_index= buf.stream_index+1}
+
     in
+
+    (* Change to an appropriate token if it is an Identifier token, and the "id" matches another token*)
+    let cleanup (tok : Token.token) : Token.token = 
+      match tok with
+      | ID id -> 
+      (
+        match id with
+        | "rule" -> Token.RULE
+        | "parse" -> Token.PARSE
+        | "as" -> Token.AS
+        | "eof" -> Token.EOF_PATT
+        | _ -> tok
+      )
+      | _ -> tok
+    in
+
     (* Update the buffer with a new head index, and clear the last rule value *)
     let buf = { buf with head_index = buf.tail_index; last_rule=no_rule } in
     let buf = scan_state buf in
     let token = Token.make_token buf.last_rule (matched_of_lexbuf buf) in
+    let token = cleanup token in
     let buf = { buf with stream_index = buf.tail_index; } in
     token, buf
 
