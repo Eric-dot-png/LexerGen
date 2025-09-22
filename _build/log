@@ -1,6 +1,0 @@
-# dune exec -- ./bin/main.exe
-# OCAMLPARAM: unset
-# Shared cache: enabled-except-user-rules
-# Shared cache location: /home/eric/.cache/dune/db
-# Workspace root: /home/eric/projects/lexerproj/lexerproj
-# Auto-detected concurrency: 14

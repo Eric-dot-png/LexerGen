@@ -1,8 +1,0 @@
-lib: [
-  "_build/install/default/lib/lexerproj/META"
-  "_build/install/default/lib/lexerproj/dune-package"
-  "_build/install/default/lib/lexerproj/opam"
-]
-bin: [
-  "_build/install/default/bin/lexerproj"
-]

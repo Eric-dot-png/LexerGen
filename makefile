@@ -1,7 +1,7 @@
 run:
 	dune exec -- ./bin/main.exe
 
-autobuild:
+auto:
 	dune build --watch
 
 clean:
