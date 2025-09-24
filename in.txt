@@ -1,0 +1,14 @@
+{
+#include <iostream>
+}
+
+rule lexer = parse 
+| <[a-zA-Z][0-9a-zA-Z_]*> as id { return ID{id}; }
+| "+" { return PLUS; }
+
+{
+int main()
+{
+  return 0;
+}
+}

@@ -5,25 +5,7 @@
 
 open MyLexing
 open MyParsing
-
-let sample_file = 
-"
-{
-#include <iostream>
-}
-
-rule lexer = parse 
-| <[a-zA-Z][0-9a-zA-Z_]*> as id { return ID{id}; }
-| \"+\" { return PLUS; }
-
-{
-int main()
-{
-  return 0;
-}
-}
-
-"
+open MyUtil
 
 (*----------------------------------------------------------------------------*)
 (* Arg parser references and functions                                        *)
@@ -55,7 +37,7 @@ let () =
   let _ = Printf.printf "Output Filename: %s\n" output_filename in
   let _ = Printf.printf "Debug: %b\n" debug_msgs in
   
-  let str = sample_file in
+  let str = MyUtil.read_file input_filename in
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
   let _ = MyParsing.print_lex_file lex_file in 
