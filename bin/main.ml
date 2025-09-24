@@ -3,12 +3,17 @@
 (* brief : application entry point and arg parser code                        *)
 (*----------------------------------------------------------------------------*)
 
+
+(*----------------------------------------------------------------------------*)
+(* Module Loading                                                             *)
+(*----------------------------------------------------------------------------*)
+
 open MyLexing
 open MyParsing
 open MyUtil
 
 (*----------------------------------------------------------------------------*)
-(* Arg parser references and functions                                        *)
+(* Arg Parsing                                                                *)
 (*----------------------------------------------------------------------------*)
 let parse_args : string * string * bool =
   let input_filename = ref "none" in
@@ -36,7 +41,6 @@ let () =
   let _ = Printf.printf "Input Filename: %s\n" input_filename in
   let _ = Printf.printf "Output Filename: %s\n" output_filename in
   let _ = Printf.printf "Debug: %b\n" debug_msgs in
-  
   let str = MyUtil.read_file input_filename in
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
