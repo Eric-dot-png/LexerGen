@@ -29,6 +29,41 @@ module MyParsing = struct
   | None
   | Eof
 
+  let print_lex_file ( file : lex_file ) : unit = 
+    let line = String.make 50 '*' in
+    let _ = print_endline line in 
+    let _ = print_endline file.header in 
+    let f_rule = file.rule in 
+    let _ = Printf.printf "rule %s = parse\n" f_rule.name in
+
+    let string_of_pattern ( patt : pattern ) : string =
+    ( 
+      match patt with 
+      | None -> "_" 
+      | Eof -> "eof"
+      | String(str) -> str
+      | Regex(rgx) ->  rgx 
+    ) 
+    in
+
+    let rec print_cases ( cases : case list ) : unit = 
+      match cases with 
+      | case::cases -> 
+      (
+        let patt_str = string_of_pattern case.pattern in
+        if String.length case.alias != 0 then
+          let _ = Printf.printf "| %s as %s %s\n" patt_str case.alias case.code in 
+          print_cases cases 
+        else 
+          let _ = Printf.printf "| %s %s\n" patt_str case.code in
+          print_cases cases
+      )
+      | [] -> ()
+    in 
+    let _ = print_cases f_rule.cases in
+    let _ = print_endline file.trailer in
+    print_endline line
+
   let parse ( toks : Token.token list ) : lex_file =
     let rec get_header ( toks : Token.token list ) ( ret : lex_file ): lex_file = 
       match toks with
@@ -95,5 +130,9 @@ module MyParsing = struct
       | _ -> failwith "Not Possible"
     in
     
-    (get_header toks {header=""; rule={name=""; args=[]; cases=[]}; trailer=""})
+    let lfile = (get_header toks {header=""; rule={name=""; args=[]; cases=[]}; trailer=""}) in
+    let lrule = lfile.rule in
+    let lrule = {lrule with cases = (List.rev lrule.cases)} in
+    {lfile with rule=lrule}
+
 end

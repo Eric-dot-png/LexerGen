@@ -43,7 +43,7 @@ let lexAll ( fileContents : string ) : Token.token list =
   (* call the helper and reverse its output *)
   List.rev ( helper buf [] )
 
-
+(*
 let print_toks (toks : Token.token list ) : unit =
   let rec helper (toks : Token.token list ) (index : int ) : unit = 
     match toks with 
@@ -55,10 +55,11 @@ let print_toks (toks : Token.token list ) : unit =
       )
   in
   helper toks 1
+*)
 
 let () = 
   let str = sample_file in
   let toks = lexAll str in
-  let _ = print_toks toks in 
-  let _ = MyParsing.parse toks in 
+  let lex_file = MyParsing.parse toks in 
+  let _ = MyParsing.print_lex_file lex_file in 
   () 
