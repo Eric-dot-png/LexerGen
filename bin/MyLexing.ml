@@ -177,4 +177,20 @@ module MyLexing = struct
     let buf = { buf with stream_index = buf.tail_index; } in
     token, buf
 
+
+    let lexAll ( fileContents : string ) : Token.token list = 
+      (* conver the string to a buffer *)
+      let buf = lexbuf_of_string fileContents in 
+    
+      (* define a helper function to parse until we see an eof token, constructing 
+        a reversed list and returing this list *)
+      let rec helper (buf : lexbuf) (list : Token.token list) : Token.token list =
+      let tok, buf = tokenize buf in
+      match tok with 
+      | Token.EOF -> (tok :: list)
+      | _ -> helper buf ( tok :: list )
+  in
+
+  (* call the helper and reverse its output *)
+  List.rev ( helper buf [] )
 end

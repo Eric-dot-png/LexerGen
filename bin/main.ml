@@ -4,7 +4,6 @@ brief : app entry point
 *)
 
 open MyLexing
-open Token
 open MyParsing
 
 
@@ -27,39 +26,11 @@ int main()
 
 "
 
-let lexAll ( fileContents : string ) : Token.token list = 
-  (* conver the string to a buffer *)
-  let buf = MyLexing.lexbuf_of_string fileContents in 
-  
-  (* define a helper function to parse until we see an eof token, constructing 
-     a reversed list and returing this list *)
-  let rec helper (buf : MyLexing.lexbuf) (list : Token.token list) : Token.token list =
-     let tok, buf = MyLexing.tokenize buf in
-     match tok with 
-     | Token.EOF -> (tok :: list)
-     | _ -> helper buf ( tok :: list )
-  in
 
-  (* call the helper and reverse its output *)
-  List.rev ( helper buf [] )
-
-(*
-let print_toks (toks : Token.token list ) : unit =
-  let rec helper (toks : Token.token list ) (index : int ) : unit = 
-    match toks with 
-    | [] -> print_string "\n"
-    | tok::toks -> 
-      (
-        let _ = Printf.printf "%d. %s\n" index (Token.string_of_token tok) in
-        helper toks (index+1)
-      )
-  in
-  helper toks 1
-*)
 
 let () = 
   let str = sample_file in
-  let toks = lexAll str in
+  let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
   let _ = MyParsing.print_lex_file lex_file in 
   () 

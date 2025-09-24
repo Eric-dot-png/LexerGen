@@ -20,5 +20,8 @@ module MyUtil = struct
     match list with 
       head::tail -> head,tail
     | [] -> failwith "MyUtil.head : list is empty"
-  
+ 
+  let read_file ( file_path : string ) : string = 
+    In_channel.with_open_text file_path In_channel.input_all
+
 end
