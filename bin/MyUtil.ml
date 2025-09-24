@@ -16,5 +16,9 @@ module MyUtil = struct
 
   let is_alnum (c : char) : bool = (is_digit c) || (is_alpha c)
 
+  let head (list : 'a list) : 'a * 'a list = 
+    match list with 
+      head::tail -> head,tail
+    | [] -> failwith "MyUtil.head : list is empty"
   
 end
