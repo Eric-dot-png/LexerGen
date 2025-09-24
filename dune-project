@@ -5,11 +5,11 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github Eric-dot-png/LexerGen))
 
-(authors "Author Name")
+(authors "Eric Garcia")
 
-(maintainers "Maintainer Name")
+(maintainers "Eric Garcia")
 
 (license LICENSE)
 
