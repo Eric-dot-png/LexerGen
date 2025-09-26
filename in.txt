@@ -5,7 +5,8 @@
 rule lexer = parse 
 | <[a-zA-Z][0-9a-zA-Z_]*> as id { return ID{id}; }
 | "+" { return PLUS; }
-
+| eof { return EOF; }
+| _ { throw std::logic_error("Unparsable"); }
 {
 int main()
 {
