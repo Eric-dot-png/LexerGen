@@ -28,6 +28,12 @@ module MyParsing = struct
   | None
   | Eof
 
+  let clean_string_of_pattern ( patt : pattern ) : string = 
+    let trim (str : string) = String.sub str 1 ( (String.length str) - 2) in
+    match patt with 
+    | String(s) | Regex(s) -> trim s
+    | _ -> ""
+
   let pattern_index ( patt : pattern ) : int = 
     match patt with
     | String(_) -> 0
@@ -141,7 +147,7 @@ module MyParsing = struct
     let flatten_rule ( rule : rule ) : (string * (string * int * string * string) list ) =
       let name = rule.name in 
       let flatten_case ( case : case ) : string * int * string * string =
-         ((string_of_pattern case.pattern),  (pattern_index case.pattern), case.alias, case.code) in
+         ((clean_string_of_pattern case.pattern),  (pattern_index case.pattern), case.alias, case.code) in
       (name, ( List.map flatten_case rule.cases ) )
 
 end
