@@ -2,7 +2,7 @@
  (public_name lexerproj)
  (name main)
  (foreign_stubs (language cxx)
-  (names entry)
+  (names InterfaceMain)
   (flags (-I%{project_root}/../../bin/cpp -std=c++20 -Wall) ))
  (libraries lexerproj))
 
