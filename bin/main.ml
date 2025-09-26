@@ -13,8 +13,15 @@ open MyParsing
 open MyUtil
 
 (*----------------------------------------------------------------------------*)
+(* External Function loading                                                  *)
+(*----------------------------------------------------------------------------*)
+
+external process_rule : string -> (string * int * string * string) list -> unit = "processRule"
+
+(*----------------------------------------------------------------------------*)
 (* Arg Parsing                                                                *)
 (*----------------------------------------------------------------------------*)
+
 let parse_args : string * string * bool =
   let input_filename = ref "none" in
   let output_filename = ref "default" in
@@ -33,9 +40,11 @@ let parse_args : string * string * bool =
   in 
   !input_filename, !output_filename, !debug_msgs
 
+  
 (*----------------------------------------------------------------------------*)
 (* Application entry point                                                    *)
 (*----------------------------------------------------------------------------*)
+
 let () = 
   let input_filename, output_filename, debug_msgs = parse_args in 
   let _ = Printf.printf "Input Filename: %s\n" input_filename in
@@ -44,5 +53,7 @@ let () =
   let str = MyUtil.read_file input_filename in
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
-  let _ = MyParsing.print_lex_file lex_file in 
+  let _ = MyParsing.print_lex_file lex_file in
+  let name, flat_cases = MyParsing.flatten_rule lex_file.rule in 
+  let _ = process_rule name flat_cases in 
   () 

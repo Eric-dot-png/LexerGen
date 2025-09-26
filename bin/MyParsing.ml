@@ -15,7 +15,6 @@ module MyParsing = struct
   }
   and rule = {
     name : string;
-    args : string list;
     cases : case list;
   }
   and case = {
@@ -29,22 +28,26 @@ module MyParsing = struct
   | None
   | Eof
 
+  let pattern_index ( patt : pattern ) : int = 
+    match patt with
+    | String(_) -> 0
+    | Regex(_) -> 1
+    | None -> 2
+    | Eof -> 3
+
+  let string_of_pattern ( patt : pattern ) : string =
+      match patt with 
+      | None -> "_" 
+      | Eof -> "eof"
+      | String(str) -> str
+      | Regex(rgx) ->  rgx 
+
   let print_lex_file ( file : lex_file ) : unit = 
     let line = String.make 50 '*' in
     let _ = print_endline line in 
     let _ = print_endline file.header in 
     let f_rule = file.rule in 
     let _ = Printf.printf "rule %s = parse\n" f_rule.name in
-
-    let string_of_pattern ( patt : pattern ) : string =
-    ( 
-      match patt with 
-      | None -> "_" 
-      | Eof -> "eof"
-      | String(str) -> str
-      | Regex(rgx) ->  rgx 
-    ) 
-    in
 
     let rec print_cases ( cases : case list ) : unit = 
       match cases with 
@@ -73,7 +76,7 @@ module MyParsing = struct
     and get_rule (toks : Token.token list ) ( ret : lex_file ): lex_file = 
       match toks with 
       | Token.RULE :: Token.ID(id) :: Token.EQUALS :: Token.PARSE::toks ->
-        get_cases toks { ret with rule={name=id;args=[];cases=[];}}
+        get_cases toks { ret with rule={name=id;cases=[];}}
       | _ -> failwith "Error" 
     
     and get_cases (toks : Token.token list) ( ret : lex_file ) : lex_file = 
@@ -130,9 +133,15 @@ module MyParsing = struct
       | _ -> failwith "Not Possible"
     in
     
-    let lfile = (get_header toks {header=""; rule={name=""; args=[]; cases=[]}; trailer=""}) in
+    let lfile = (get_header toks {header=""; rule={name=""; cases=[]}; trailer=""}) in
     let lrule = lfile.rule in
     let lrule = {lrule with cases = (List.rev lrule.cases)} in
     {lfile with rule=lrule}
+
+    let flatten_rule ( rule : rule ) : (string * (string * int * string * string) list ) =
+      let name = rule.name in 
+      let flatten_case ( case : case ) : string * int * string * string =
+         ((string_of_pattern case.pattern),  (pattern_index case.pattern), case.alias, case.code) in
+      (name, ( List.map flatten_case rule.cases ) )
 
 end
