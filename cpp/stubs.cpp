@@ -1,4 +1,4 @@
-/// file : entry.cpp 
+/// file : stubs.cpp
 /// brief : entry point for ocaml interface
 
 #include "RuleCase.hpp"
@@ -12,7 +12,6 @@
 #include <iostream>
 #include <vector>
 #include <string_view>
-
 
 extern "C" 
 {
