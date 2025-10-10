@@ -1,7 +1,10 @@
 /// file : stubs.cpp
 /// brief : entry point for ocaml interface
 
-#include "RuleCase.hpp"
+#include "liblexer/include/RuleCase.hpp"
+#include "liblexer/include/NFABuilder.hpp"
+#include "liblexer/include/DFA.hpp"
+#include "liblexer/include/LexerUtil/Drawing.hpp"
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -40,6 +43,10 @@ extern "C"
             std::cout << rc.patternData << std::endl;
         }
 
+        NFA n = NFABuilder::Build(rcs);
+        DFA m(n);
+
+        std::cout << "DFA has " << m.States().size() << " states." << std::endl;
 
         CAMLreturn(Val_unit);
     }

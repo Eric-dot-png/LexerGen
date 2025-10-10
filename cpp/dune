@@ -5,6 +5,6 @@
   (names stubs)
   (flags
    (-fPIC -std=c++20 -Wall)
-   (-I%{project_root}/../../cpp))))
-
+   (-I%{project_root}/../../cpp -I%{project_root}/../../cpp/liblexer/include)))
+  (foreign_archives liblexer/lib/lexer))
 (include_subdirs qualified)
