@@ -23,8 +23,8 @@ module MyParsing = struct
     code : string
   }
   and pattern =
-  | String of string
   | Regex of string
+  | String of string
   | None
   | Eof
 
@@ -36,8 +36,8 @@ module MyParsing = struct
 
   let pattern_index ( patt : pattern ) : int = 
     match patt with
-    | String(_) -> 0
-    | Regex(_) -> 1
+    | Regex(_) -> 0
+    | String(_) -> 1
     | None -> 2
     | Eof -> 3
 
@@ -102,7 +102,8 @@ module MyParsing = struct
         | Token.STRING(patt) -> String(patt)
         | _  -> failwith "Not possible"
       ) in
-      let pattern_node = determine_patt patt_tok in 
+      let pattern_node = determine_patt patt_tok in
+      let _ = Printf.printf "Pattern: Type<%d> Patt<%s>\n" (pattern_index pattern_node) (string_of_pattern pattern_node) in 
       match toks with 
       | Token.AS :: Token.ID(id) :: Token.CODE(code) :: toks ->
       (

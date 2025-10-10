@@ -13,8 +13,8 @@
 #include <caml/fail.h>
 
 #include <iostream>
+#include <iomanip>
 #include <vector>
-#include <string_view>
 
 extern "C" 
 {
@@ -29,9 +29,11 @@ extern "C"
             value tuple = Field(ruleCases, 0);
 
             const char * const patternData = String_val(Field(tuple, 0));
-            RuleCase::Pattern_t patternType = static_cast<RuleCase::Pattern_t>(Field(tuple, 1));
+            RuleCase::Pattern_t patternType = static_cast<RuleCase::Pattern_t>(Int_val(Field(tuple, 1)));
             const char * const matchAlias = String_val(Field(tuple, 2));
             const char * const actionCode = String_val(Field(tuple, 3));
+
+            std::cout << "Read pattern: " << patternData << " type: " << (size_t)patternType << std::endl;
 
             rcs.emplace_back(patternData, patternType, matchAlias, actionCode);
 
@@ -40,10 +42,18 @@ extern "C"
 
         for (const RuleCase& rc : rcs)
         {
-            std::cout << rc.patternData << std::endl;
+            std::cout << rc.patternData << ' ' << (rc.patternType == RuleCase::Pattern_t::REGEX) << " = ";
+            std::cout << std::hex << std::setfill('0');
+            for (size_t i = 0; i < rc.patternData.size(); ++i)
+            {
+                std::cout << std::setw(2) << (int)rc.patternData[i] << ' ';
+            }
+            std::cout << std::dec << std::setfill(' ') << std::endl;
+            
         }
 
         NFA n = NFABuilder::Build(rcs);
+
         DFA m(n);
 
         std::cout << "DFA has " << m.States().size() << " states." << std::endl;
