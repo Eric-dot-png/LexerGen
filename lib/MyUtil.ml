@@ -24,4 +24,7 @@ module MyUtil = struct
   let read_file ( file_path : string ) : string = 
     In_channel.with_open_text file_path In_channel.input_all
 
+  let write_file ( file_path : string ) ( content : string ) : unit =
+    Out_channel.with_open_text file_path (fun oc -> Out_channel.output_string oc content)
+
 end

@@ -145,10 +145,9 @@ module MyParsing = struct
     let lrule = {lrule with cases = (List.rev lrule.cases)} in
     {lfile with rule=lrule}
 
-    let flatten_rule ( rule : rule ) : (string * (string * int * string * string) list ) =
-      let name = rule.name in 
+    let flatten_rule ( rule : rule ) : (string * int * string * string) list =
       let flatten_case ( case : case ) : string * int * string * string =
          ((clean_string_of_pattern case.pattern),  (pattern_index case.pattern), case.alias, case.code) in
-      (name, ( List.map flatten_case rule.cases ) )
+      List.map flatten_case rule.cases
 
 end

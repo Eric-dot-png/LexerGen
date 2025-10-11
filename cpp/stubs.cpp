@@ -77,7 +77,8 @@ extern "C" CAMLprim value processRule(value rule_cases)
         state_transitions = caml_alloc(CHAR_MAX - CHAR_MIN + 1, 0);
         for (int symbol = CHAR_MIN; symbol <= CHAR_MAX; ++symbol)
         {
-            size_t toState = (ALPHABET.contains((char)symbol) ? state.transitions.at((char)symbol) : lexDfa.Dead());
+            size_t toState = (ALPHABET.contains((char)symbol) ? 
+                state.transitions.at((char)symbol) : lexDfa.Dead());
             Store_field(state_transitions, (char)symbol , Val_int( (int) toState) );
         }
         Store_field(transition_table, (int) state.index, state_transitions);

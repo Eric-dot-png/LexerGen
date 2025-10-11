@@ -11,13 +11,16 @@
 open MyLexing
 open MyParsing
 open MyUtil
+open CodeGen
+
+open CppTemplate
 
 (*----------------------------------------------------------------------------*)
 (* External Function loading                                                  *)
 (*----------------------------------------------------------------------------*)
 
 external process_rule : (string * int * string * string) list -> 
-  (int * int * int * (int list list)) = "processRule"
+  (int * int * int * (int array array) * (int array) ) = "processRule"
 
 external get_alphabet : unit -> char array = "getAlphabet"
 
@@ -56,13 +59,18 @@ let () =
   let str = MyUtil.read_file input_filename in
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
-  let _ = MyParsing.print_lex_file lex_file in
-  let _, flat_cases = MyParsing.flatten_rule lex_file.rule in 
+  let flat_cases = MyParsing.flatten_rule lex_file.rule in 
   let alphabet = get_alphabet () in
-  let _ = Printf.printf "Alphabet Size: %d\n" (Array.length alphabet) in
-  let start, dead, size, _ = process_rule flat_cases in 
+  let alphabet_size = Array.length alphabet in
+  let start, dead, size, ttable , ctable = process_rule flat_cases in
+  let _ = Printf.printf "Alphabet size: %d\n" alphabet_size in
   let _ = Printf.printf "Start State: %d\n" start in
   let _ = Printf.printf "Dead State: %d\n" dead in
   let _ = Printf.printf "Number of States: %d\n" size in
-  let _ = Printf.printf "Number of Transitions: %d\n" ( (size-1) * (Array.length alphabet) ) in
+  let _ = Printf.printf "Number of Transitions: %d\n" ( (size-1) * alphabet_size ) in
+  let _ = Printf.printf "ctable size: %d\n" (Array.length ctable) in
+  let _ = Printf.printf "ttable size: %d x %d\n" (Array.length ttable) (Array.length ttable.(0)) in
+  let gen_context = CppTemplate.context output_filename in
+  let src_context = CodeGen.create_source_context start dead size ttable ctable lex_file in
+  let _ = CodeGen.generate_code src_context gen_context in
   () 

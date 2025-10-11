@@ -1,3 +1,4 @@
 (library
  (name lexerproj)
  (wrapped false))
+(include_subdirs qualified)
