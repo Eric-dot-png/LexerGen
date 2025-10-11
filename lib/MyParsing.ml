@@ -16,6 +16,8 @@ module MyParsing = struct
   and rule = {
     name : string;
     cases : case list;
+    none_code : string;
+    eof_code : string;
   }
   and case = {
     pattern : pattern;
@@ -29,9 +31,8 @@ module MyParsing = struct
   | Eof
 
   let clean_string_of_pattern ( patt : pattern ) : string = 
-    let trim (str : string) = String.sub str 1 ( (String.length str) - 2) in
     match patt with 
-    | String(s) | Regex(s) -> trim s
+    | String(s) | Regex(s) -> MyUtil.trim s
     | _ -> ""
 
   let pattern_index ( patt : pattern ) : int = 
@@ -82,7 +83,7 @@ module MyParsing = struct
     and get_rule (toks : Token.token list ) ( ret : lex_file ): lex_file = 
       match toks with 
       | Token.RULE :: Token.ID(id) :: Token.EQUALS :: Token.PARSE::toks ->
-        get_cases toks { ret with rule={name=id;cases=[];}}
+        get_cases toks { ret with rule={name=id;cases=[];none_code="";eof_code="";}}
       | _ -> failwith "Error" 
     
     and get_cases (toks : Token.token list) ( ret : lex_file ) : lex_file = 
@@ -92,41 +93,42 @@ module MyParsing = struct
       | _ -> failwith "Expected '|' "
 
     and get_case (toks : Token.token list) ( ret : lex_file ) : lex_file =
-      let patt_tok, toks = MyUtil.head toks in
-      let determine_patt tok = 
-      (  
-        match tok with
-        | Token.NONE_PATT -> None
-        | Token.EOF_PATT -> Eof 
-        | Token.REGEX(patt)  -> Regex(patt)
-        | Token.STRING(patt) -> String(patt)
-        | _  -> failwith "Not possible"
-      ) in
-      let pattern_node = determine_patt patt_tok in
-      let _ = Printf.printf "Pattern: Type<%d> Patt<%s>\n" (pattern_index pattern_node) (string_of_pattern pattern_node) in 
-      match toks with 
-      | Token.AS :: Token.ID(id) :: Token.CODE(code) :: toks ->
-      (
-        match patt_tok with 
-        | Token.NONE_PATT | Token.EOF_PATT -> failwith "None pattern / eof pattern not aliasable"
-        | Token.STRING(_) | Token.REGEX(_) -> 
-        (
-          let case_i = { pattern = pattern_node; alias=id; code=code;} in
-          let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
-          let ret = { ret with rule=rule } in
-          check_done toks ret 
-        )
+      let helper tok alias code = 
+        match tok with 
+        | Token.REGEX(patt) -> {pattern=Regex(patt);alias=alias;code=code}
+        | Token.STRING(patt) -> {pattern=String(patt);alias=alias;code=code}
         | _ -> failwith "Not possible"
-      )
-      | Token.CODE(code) :: toks  -> 
-      (
-        let case_i = { pattern = pattern_node; alias=""; code=code;} in
+      in
+      match toks with
+      (* correct special cases (none and eof) *)
+      
+      | Token.NONE_PATT :: Token.CODE(none_code) :: rest -> 
+        let ret_rule = {ret.rule with none_code = none_code} in
+        check_done rest {ret with rule = ret_rule }
+      
+      | Token.EOF_PATT :: Token.CODE(eof_code) :: rest -> 
+        let ret_rule = {ret.rule with eof_code = eof_code} in
+        check_done rest {ret with rule = ret_rule }
+      
+      (* incorrect special cases *)
+      | ( Token.EOF_PATT | Token.NONE_PATT ) :: Token.AS :: _ -> failwith "Special Patterns (none and eof) are not aliasable" 
+      
+      (* correct non-special cases *)
+      | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.AS :: Token.ID(alias) :: Token.CODE(code) :: rest ->
+        let case_i = helper patt_tok alias code in 
         let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
-        let ret = { ret with rule=rule } in
-        check_done toks ret 
-      )
-      | _ -> failwith "Error"
-    
+        check_done rest { ret with rule=rule }
+      
+      | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.CODE(code) :: rest -> 
+        let case_i = helper patt_tok "" code in 
+        let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
+        check_done rest { ret with rule=rule }
+      
+        (* incorrect non-special cases *)
+      | (Token.REGEX(_) | Token.STRING(_) ) :: Token.AS :: Token.CODE(_) :: _ -> failwith "Missing identifier for alias"
+      
+      | _ -> failwith "Unexpected token"
+
     and check_done ( toks : Token.token list ) ( ret : lex_file ) : lex_file =
       match toks with 
       | ( Token.CODE(_) :: _ as toks ) -> get_trailer toks ret 
@@ -140,7 +142,7 @@ module MyParsing = struct
       | _ -> failwith "Not Possible"
     in
     
-    let lfile = (get_header toks {header=""; rule={name=""; cases=[]}; trailer=""}) in
+    let lfile = (get_header toks {header=""; rule={name=""; cases=[];none_code="";eof_code=""}; trailer=""}) in
     let lrule = lfile.rule in
     let lrule = {lrule with cases = (List.rev lrule.cases)} in
     {lfile with rule=lrule}

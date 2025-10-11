@@ -27,4 +27,6 @@ module MyUtil = struct
   let write_file ( file_path : string ) ( content : string ) : unit =
     Out_channel.with_open_text file_path (fun oc -> Out_channel.output_string oc content)
 
+  let trim (str : string) = String.sub str 1 ( (String.length str) - 2)
+
 end

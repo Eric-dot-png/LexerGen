@@ -32,7 +32,7 @@ constexpr size_t CHAR_MAX = std::numeric_limits<char>::max();
 ///         the transition table is an ocaml array representing the transition table. 
 ///         `table[s][char] = s'` dead state does not have any outgoing transitions.
 ///         the case tag table is an ocaml array representing the case tag for each state.
-///         `case_table[s] = case_tag` where case_tag is the rule number associated with the state 
+///         `case_table[state_tag] = case_tag` where `case_tag` is the case number associated with `state` 
 ///         if any, or `NO_CASE_TAG = -1` if no rule is associated with the state
 extern "C" CAMLprim value processRule(value rule_cases)
 {
@@ -54,7 +54,8 @@ extern "C" CAMLprim value processRule(value rule_cases)
         ruleCases.emplace_back(patternData, patternType, matchAlias, actionCode);
         rule_cases = Field(rule_cases, 1);
     }
-    
+    const size_t NUM_CASES = ruleCases.size();
+
     /// use the rule cases the build an nfa, and then a dfa (unminimized : TODO)
     ///
     DFA lexDfa(NFABuilder::Build(ruleCases));
@@ -66,14 +67,20 @@ extern "C" CAMLprim value processRule(value rule_cases)
     DrawStateMachine(lexDfa, "output/dfa.dot");
 
     /// convert the dfa's cpp transition table into an ocaml value and store the case tags
-    /// as a seperate array
-    ///
+    /// as a seperate array. Initialize the seperate array to NO_CASE_TAG values.
+    /// 
     CAMLlocal3(transition_table, state_transitions, case_table);
     transition_table = caml_alloc(NUM_STATES, 0);
     case_table = caml_alloc(NUM_STATES, 0);
+    
+    for (size_t case_index = 0; case_index < NUM_CASES; ++case_index)
+    {
+        Store_field(case_table, case_index, Val_int((int) NO_CASE_TAG));
+    }
+
     for (const DFA::State& state : lexDfa.States())
     {
-        Store_field(case_table, (int) state.index, Val_int( (int) state.caseTag));
+        Store_field(case_table, state.index, Val_int(state.caseTag));
         state_transitions = caml_alloc(CHAR_MAX - CHAR_MIN + 1, 0);
         for (int symbol = CHAR_MIN; symbol <= CHAR_MAX; ++symbol)
         {

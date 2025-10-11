@@ -44,21 +44,30 @@ module CodeGen = struct
   type table_gen_fn = ttable -> string
 
   (**
-    function type to generate action code for each case
+    function type to generate case tag table source code
     - parameters:
-      - [case] the case to generate action code for
-    - returns: string representation of the action code
+      - [ctable] case tag table 
+    - returns: string representation case tag table source code
   *)
-  type action_gen_fn = MyParsing.case -> string 
+  type ctable_gen_fn = ctable -> string 
+
+  (**
+    function type to generate action function source code for a single case
+    - parameters
+      - [case] the case to generate the action code for
+      - [case_index] the index of `case` in the case list
+    - returns string representation of the action function source code
+  *)
+  type action_gen_fn =  int -> MyParsing.case -> string 
 
   (**
     function type to generate the final source code wrapping the table and action code
     - parameters:
-      - [table_str] string representation of the transition table
-      - [action_strs] list of string representations of the action code for each case
+      - [ttable_str] string representation of the transition table
+      - [ctable_str] list of string representations of the action code for each case
     - returns: final source code as a string
   *)
-  type wrapper_gen_fn = string -> string list -> string
+  type wrapper_gen_fn = int -> int -> string -> string -> string list -> string -> string -> string
 
   (**
     structure to represent context information required of source being generated
@@ -85,9 +94,7 @@ module CodeGen = struct
   *)
   type gen_context = {
     out_file : string;
-    gen_table : table_gen_fn;
-    gen_action : action_gen_fn;
-    gen_wrapper : wrapper_gen_fn;
+    gen_function : source_context -> string
   }
 
   (*----------------------------------------------------------------------------*)
@@ -112,10 +119,6 @@ module CodeGen = struct
     - [gen_ctxt] context of the generation process
   *)
   let generate_code (src_ctx : source_context) (gen_ctx : gen_context) : unit =
-    let ttable_str = gen_ctx.gen_table src_ctx.ttable in
-    let action_strs = List.map gen_ctx.gen_action src_ctx.lex_file.rule.cases in
-    let source_code = gen_ctx.gen_wrapper ttable_str action_strs in
-    let _ = print_string source_code in 
-    MyUtil.write_file gen_ctx.out_file source_code
+    MyUtil.write_file gen_ctx.out_file (gen_ctx.gen_function src_ctx)
    
 end
