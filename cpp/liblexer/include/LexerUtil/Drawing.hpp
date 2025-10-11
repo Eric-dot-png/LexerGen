@@ -6,6 +6,7 @@
 #include "LexerUtil/Constants.hpp"
 #include "LexerUtil/Misc.hpp"
 #include "LexerUtil/Macros.hpp"
+#include "LexerUtil/Macros.hpp"
 
 #include <fstream>
 
@@ -19,12 +20,13 @@ static void DrawStateMachine(const SM_t& sm, const char * const outFilePath)
     
     file << "digraph StateMachine {\n"
         << "    rankdir=LR;\n"
-        << "    node [shape=circle];\n\n\n";
+        << "    hiddenStart[shape=point, width=0, label=\"\"];\n"
+        << std::format("    hiddenStart -> q{};\n", sm.Start());
 
     for (const auto& state : sm.States())
     {
         std::string shape = (state.caseTag != NO_CASE_TAG ? "doublecircle" : "circle");
-        file << std::format("q{} [shape={}, label=\"{}\"];\n", state.index, shape, state.index);
+        file << std::format("    q{} [shape={}, label=\"q{}\"];\n", state.index, shape, state.index);
     }
 
     for (const auto& state : sm.States())
@@ -36,7 +38,7 @@ static void DrawStateMachine(const SM_t& sm, const char * const outFilePath)
         }
         for (const auto& [result, label] : labelMap[state.index])
         {
-            file << std::format("q{} -> q{} [label=\"{}\"];\n", state.index, result, label);
+            file << std::format("    q{} -> q{} [label=\"{}\"];\n", state.index, result, label);
         }
     }
 
