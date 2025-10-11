@@ -2,3 +2,4 @@ _build
 .vscode
 out.log
 lexerproj.opam
+output
