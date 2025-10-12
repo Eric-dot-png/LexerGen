@@ -91,6 +91,7 @@ module MyLexing = struct
     (* scan_state: starting scanning state that recognizes top-level tokens *)
     let rec scan_state (buf : lexbuf) : lexbuf =
       match peek buf with
+      | ':' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.COLON }
       | '|' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.BAR }
       | '=' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.EQUALS }      
       | '_' -> { buf with tail_index = buf.stream_index+1; last_rule = Token.index_of_token Token.NONE_PATT }

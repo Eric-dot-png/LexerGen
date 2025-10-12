@@ -15,6 +15,7 @@ module MyParsing = struct
   }
   and rule = {
     name : string;
+    return_type : string;
     cases : case list;
     none_code : string;
     eof_code : string;
@@ -27,25 +28,17 @@ module MyParsing = struct
   and pattern =
   | Regex of string
   | String of string
-  | None
-  | Eof
 
   let clean_string_of_pattern ( patt : pattern ) : string = 
-    match patt with 
-    | String(s) | Regex(s) -> MyUtil.trim s
-    | _ -> ""
+    match patt with String(s) | Regex(s) -> MyUtil.trim s
 
   let pattern_index ( patt : pattern ) : int = 
     match patt with
     | Regex(_) -> 0
     | String(_) -> 1
-    | None -> 2
-    | Eof -> 3
 
   let string_of_pattern ( patt : pattern ) : string =
       match patt with 
-      | None -> "_" 
-      | Eof -> "eof"
       | String(str) -> str
       | Regex(rgx) ->  rgx 
 
@@ -77,13 +70,13 @@ module MyParsing = struct
   let parse ( toks : Token.token list ) : lex_file =
     let rec get_header ( toks : Token.token list ) ( ret : lex_file ): lex_file = 
       match toks with
-      | Token.CODE(code)::toks -> (get_rule toks {ret with header=code}) 
+      | Token.CODE(code)::toks -> (get_rule toks {ret with header=MyUtil.trim code}) 
       | _ -> ( get_rule toks {ret with header=""} )
 
     and get_rule (toks : Token.token list ) ( ret : lex_file ): lex_file = 
       match toks with 
-      | Token.RULE :: Token.ID(id) :: Token.EQUALS :: Token.PARSE::toks ->
-        get_cases toks { ret with rule={name=id;cases=[];none_code="";eof_code="";}}
+      | Token.RULE :: Token.ID(id) :: Token.COLON :: Token.ID(ret_type) :: Token.EQUALS :: Token.PARSE::toks ->
+        get_cases toks { ret with rule={name=id;return_type=ret_type;cases=[];none_code="";eof_code="";}}
       | _ -> failwith "Error" 
     
     and get_cases (toks : Token.token list) ( ret : lex_file ) : lex_file = 
@@ -103,11 +96,11 @@ module MyParsing = struct
       (* correct special cases (none and eof) *)
       
       | Token.NONE_PATT :: Token.CODE(none_code) :: rest -> 
-        let ret_rule = {ret.rule with none_code = none_code} in
+        let ret_rule = {ret.rule with none_code = MyUtil.trim none_code} in
         check_done rest {ret with rule = ret_rule }
       
       | Token.EOF_PATT :: Token.CODE(eof_code) :: rest -> 
-        let ret_rule = {ret.rule with eof_code = eof_code} in
+        let ret_rule = {ret.rule with eof_code = MyUtil.trim eof_code} in
         check_done rest {ret with rule = ret_rule }
       
       (* incorrect special cases *)
@@ -115,12 +108,12 @@ module MyParsing = struct
       
       (* correct non-special cases *)
       | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.AS :: Token.ID(alias) :: Token.CODE(code) :: rest ->
-        let case_i = helper patt_tok alias code in 
+        let case_i = helper patt_tok alias (MyUtil.trim code) in 
         let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
         check_done rest { ret with rule=rule }
       
       | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.CODE(code) :: rest -> 
-        let case_i = helper patt_tok "" code in 
+        let case_i = helper patt_tok "" (MyUtil.trim code) in 
         let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
         check_done rest { ret with rule=rule }
       
@@ -137,12 +130,12 @@ module MyParsing = struct
 
     and get_trailer ( toks : Token.token list ) ( ret : lex_file ) : lex_file = 
       match toks with
-      | Token.CODE(code) :: Token.EOF :: [] -> {ret with trailer=code }
+      | Token.CODE(code) :: Token.EOF :: [] -> {ret with trailer=MyUtil.trim code}
       | Token.CODE(_) :: _ -> failwith "Unexpected tokens after trailer"
       | _ -> failwith "Not Possible"
     in
     
-    let lfile = (get_header toks {header=""; rule={name=""; cases=[];none_code="";eof_code=""}; trailer=""}) in
+    let lfile = (get_header toks {header=""; rule={name=""; return_type=""; cases=[];none_code="";eof_code=""}; trailer=""}) in
     let lrule = lfile.rule in
     let lrule = {lrule with cases = (List.rev lrule.cases)} in
     {lfile with rule=lrule}

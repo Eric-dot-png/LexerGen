@@ -1,15 +1,16 @@
 .PHONY: run 
 
-IFILE ?= in.txt
-OFILE ?= out.txt
-DEBUG ?= true
 OUT_DIR := output
+
+IFILE ?= in.txt
+OFILE ?= $(OUT_DIR)/out.cpp
+DEBUG ?= true
 
 run: $(OUT_DIR)
 	@dune exec -- ./bin/main.exe -i $(IFILE) -o $(OFILE) $(if $(filter true,$(DEBUG)),-d)
 
 log: $(OUT_DIR)
-	@dune exec -- ./bin/main.exe > out.log
+	@dune exec -- ./bin/main.exe > $(OUT_DIR)/out.log
 
 auto:
 	@dune build --watch

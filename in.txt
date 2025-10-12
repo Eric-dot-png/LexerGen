@@ -2,10 +2,20 @@
 #include <iostream>
 }
 
-rule lexer = parse 
-| <[a-zA-Z][0-9a-zA-Z_]*> as id { return ID{id}; }
-| eof { return EOF; }
-| _ { throw std::logic_error("Unparsable"); }
+rule lexer : void = parse 
+| <[a-zA-Z][0-9a-zA-Z_]*> as id 
+{ 
+    std::cout << "ID : " << id << std::endl;
+}
+| eof 
+{ 
+    std::cout << "EOF" << std::endl;
+}
+| _ 
+{ 
+    throw std::logic_error("Unparsable"); 
+}
+
 {
 int main()
 {

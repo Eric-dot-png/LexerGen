@@ -32,6 +32,7 @@ module Token = struct
     | PARSE
     | NONE_PATT
     | EOF
+    | COLON
 
   (* ------------------------------------------------------------------ *)
   (* Index mapping (stable numeric representation)                       *)
@@ -54,6 +55,7 @@ module Token = struct
     | PARSE -> 9
     | NONE_PATT -> 10
     | EOF -> 11
+    | COLON -> 12
 
   (** Construct a token from a numeric index and optional string payload.
       Calling with an unknown index raises [Invalid_argument]. *)
@@ -71,6 +73,7 @@ module Token = struct
     | 9 -> PARSE
     | 10 -> NONE_PATT
     | 11 -> EOF
+    | 12 -> COLON
     | _ -> invalid_arg "Token.make_token: invalid index"
 
   (* ------------------------------------------------------------------ *)
@@ -93,6 +96,6 @@ module Token = struct
     | PARSE -> "PARSE"
     | NONE_PATT -> "NONE_PATT"
     | EOF -> "EOF"
-    
+    | COLON -> "COLON"
 
 end
