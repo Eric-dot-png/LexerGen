@@ -7,6 +7,10 @@ rule lexer : void = parse
 { 
     std::cout << "ID : " << id << std::endl;
 }
+| " " 
+{
+    std::cout << "SPACE" << std::endl;
+}
 | eof 
 { 
     std::cout << "EOF" << std::endl;
@@ -19,6 +23,10 @@ rule lexer : void = parse
 {
 int main()
 {
-  return 0;
+    std::string idSample = "identifierName_isThis321_ id2";
+    __lexgen_lexbuf buf{idSample};
+    lexer(buf);
+    lexer(buf);
+    return 0;
 }
 }

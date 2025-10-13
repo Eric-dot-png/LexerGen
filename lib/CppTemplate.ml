@@ -34,13 +34,14 @@ inline constexpr size_t NO_TAG = NUM_CASES+1;
 struct __lexgen_lexbuf
 {
     std::string_view text;
-    size_t lexemeStart;
-    size_t lexemeEnd;
+    size_t lexemeStart=0;
+    size_t lexemeEnd=0;
 
     std::string_view lexeme() const { return text.substr(lexemeStart, lexemeEnd-lexemeStart); }
     bool isEof() const { return lexemeStart >= text.size(); }
+    bool isEmpty() const { return lexemeEnd >= text.size(); }
     char lexemeChar(size_t n) const { return lexeme().at(n); }
-    char lexemeChar() const { return lexemeChar(lexemeEnd-lexemeStart); }
+    char lexemeChar() const { return lexemeChar(lexemeEnd-lexemeStart-1); }
     void refill() { lexemeStart = lexemeEnd; ++lexemeEnd; }
 };
 /// 
@@ -70,7 +71,7 @@ inline %s __lexgen_caseNone([[maybe_unused]] __lexgen_lexbuf& lexbuf, [[maybe_un
 
 inline size_t __traverse(__lexgen_lexbuf & lexbuf) {
     size_t tag = NO_TAG;
-    for (size_t state = %d;state != %d && !lexbuf.isEof(); state = __lexgen_ttable[state][lexbuf.lexemeChar()])
+    for (size_t state = %d;state != %d && !lexbuf.isEmpty(); state = __lexgen_ttable[state][lexbuf.lexemeChar()])
     {
         ++lexbuf.lexemeEnd; 
         tag = (__lexgen_ctable[state] == NO_TAG ? tag : __lexgen_ctable[state]);
@@ -80,13 +81,13 @@ inline size_t __traverse(__lexgen_lexbuf & lexbuf) {
 
 inline %s %s(__lexgen_lexbuf & lexbuf)
 {
+    lexbuf.refill();  
     if (lexbuf.isEof())
     {
       %s
     }
     else
     {
-      lexbuf.refill();
       size_t tag = __traverse(lexbuf);
       return __lexgen_atable[tag](lexbuf, lexbuf.lexeme());
     }
