@@ -21,57 +21,80 @@ module CppTemplate = struct
 
 /// header code
 %s
+/// 
 
 #include <array>
 #include <cstddef>
 #include <string_view>
 
+/// lexer constants & lexbuf 
 inline constexpr size_t NUM_CASES = %d;
 inline constexpr size_t NO_TAG = NUM_CASES+1;
 
+struct __lexgen_lexbuf
+{
+    std::string_view text;
+    size_t lexemeStart;
+    size_t lexemeEnd;
+
+    std::string_view lexeme() const { return text.substr(lexemeStart, lexemeEnd-lexemeStart); }
+    bool isEof() const { return lexemeStart >= text.size(); }
+    char lexemeChar(size_t n) const { return lexeme().at(n); }
+    char lexemeChar() const { return lexemeChar(lexemeEnd-lexemeStart); }
+    void refill() { lexemeStart = lexemeEnd; ++lexemeEnd; }
+};
+/// 
+
+inline %s %s(__lexgen_lexbuf & lexbuf);
+
 /// state->symbol->char transition lookup table
 %s
+///
 
 /// state->tag lookup table 
 %s 
+///
 
 /// case tag fns 
 %s
 
-inline %s __lexgen_caseNone([[maybe_unused]] std::string_view yytext)
+inline %s __lexgen_caseNone([[maybe_unused]] __lexgen_lexbuf& lexbuf, [[maybe_unused]] std::string_view yytext)
 {
     %s
 }
+///
 
 /// tag->casetagfn lookup table
 %s
+///
 
-
-inline size_t __traverse(std::string_view yytext, size_t& yyindex) {
+inline size_t __traverse(__lexgen_lexbuf & lexbuf) {
     size_t tag = NO_TAG;
-    for (size_t state = %d;state != %d && yyindex < yytext.size(); state = __ttable[state][yytext[yyindex++]])
-    { 
-        tag = (__ctable[state] == NO_TAG ? tag : __ctable[state]);
+    for (size_t state = %d;state != %d && !lexbuf.isEof(); state = __lexgen_ttable[state][lexbuf.lexemeChar()])
+    {
+        ++lexbuf.lexemeEnd; 
+        tag = (__lexgen_ctable[state] == NO_TAG ? tag : __lexgen_ctable[state]);
     }
     return tag;
 }
 
-inline %s %s(std::string_view yytext, size_t& yyindex)
+inline %s %s(__lexgen_lexbuf & lexbuf)
 {
-    if (yyindex >= yytext.size())
+    if (lexbuf.isEof())
     {
       %s
     }
     else
     {
-      size_t start = yyindex;
-      size_t tag = __traverse(yytext, yyindex);
-      std::string_view substr = yytext.substr(start, yyindex-start);
-      return __atable[tag](substr);
+      lexbuf.refill();
+      size_t tag = __traverse(lexbuf);
+      return __lexgen_atable[tag](lexbuf, lexbuf.lexeme());
     }
 }
 
+/// trailer code
 %s
+///
 |} 
   (*----------------------------------------------------------------------------*)
   (* Module Initialization                                                      *)
@@ -91,24 +114,24 @@ inline %s %s(std::string_view yytext, size_t& yyindex)
       Printf.sprintf "{%s}" inner in
     let rows = Array.map row_to_str ttable in
     let body = String.concat ",\n" ( Array.to_list rows ) in
-    Printf.sprintf "inline constexpr std::array<std::array<size_t, %d>, %d> __ttable = {{\n%s\n}};" 
+    Printf.sprintf "inline constexpr std::array<std::array<size_t, %d>, %d> __lexgen_ttable = {{\n%s\n}};" 
       (Array.length ttable.(0)) (Array.length ttable) body
 
   let ctable_gen ( ctable : CodeGen.ctable ) : string = 
     let elems = Array.map (fun i -> if i != -1 then string_of_int i else "NO_TAG") ctable in
     let count = Array.length ctable in 
     let inner = String.concat ", " ( Array.to_list elems ) in
-    Printf.sprintf "inline constexpr std::array<size_t, %d> __ctable = {%s};" count inner 
+    Printf.sprintf "inline constexpr std::array<size_t, %d> __lexgen_ctable = {%s};" count inner 
 
   let atable_gen ( numCases : int ) (return_type : string ): string =
     let fn_ptr_list = List.init numCases (fun i -> Printf.sprintf "__lexgen_case%d" i) in
     let fn_ptrs = String.concat ", " fn_ptr_list in
-    Printf.sprintf "inline constexpr std::array<%s(*)(std::string_view), NUM_CASES+1> __atable = { %s, __lexgen_caseNone};" 
+    Printf.sprintf "inline constexpr std::array<%s(*)(__lexgen_lexbuf&, std::string_view), NUM_CASES+1> __lexgen_atable = { %s, __lexgen_caseNone};" 
       return_type fn_ptrs
 
   let action_fn_gen ( return_type : string ) ( caseIndex : int ) ( case : MyParsing.case ) : string =
     let alias_string = if String.length case.alias != 0 then case.alias else "" in
-    Printf.sprintf "inline %s __lexgen_case%d(std::string_view %s) {%s}" 
+    Printf.sprintf "inline %s __lexgen_case%d(__lexgen_lexbuf& lexbuf, std::string_view %s) {%s}" 
       return_type caseIndex alias_string case.code
 
   let gen_template ( ctx : CodeGen.source_context) : string =
@@ -122,7 +145,7 @@ inline %s %s(std::string_view yytext, size_t& yyindex)
     let num_cases = List.length rule.cases in
     let atable_str = atable_gen num_cases return_type in 
     Printf.sprintf template  
-      lex_file.header  num_cases  ttable_str  ctable_str  action_strings  return_type  rule.none_code
+      lex_file.header  num_cases  rule.return_type rule.name ttable_str  ctable_str  action_strings  return_type  rule.none_code
       atable_str  ctx.start ctx.dead  return_type  rule.name  rule.eof_code  lex_file.trailer
       
 
