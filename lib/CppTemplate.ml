@@ -41,7 +41,7 @@ struct __lexgen_lexbuf
     bool isEof() const { return lexemeStart >= text.size(); }
     bool isEmpty() const { return lexemeEnd >= text.size(); }
     char lexemeChar(size_t n) const { return lexeme().at(n); }
-    char lexemeChar() const { return text.at(lexemeEnd); }
+    char nextChar() const { return text.at(lexemeEnd); }
     void refill() { lexemeStart = lexemeEnd; }
 };
 /// 
@@ -74,7 +74,7 @@ inline size_t __traverse(__lexgen_lexbuf & lexbuf) {
     size_t state = %d;
     while (!lexbuf.isEmpty())
     {
-        state = __lexgen_ttable[state][lexbuf.lexemeChar()];
+        state = __lexgen_ttable[state][lexbuf.nextChar()];
         if (state == %d) break;
         ++lexbuf.lexemeEnd; 
         tag = (__lexgen_ctable[state] == NO_TAG ? tag : __lexgen_ctable[state]);
