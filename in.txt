@@ -3,11 +3,11 @@
 }
 
 rule lexer : void = parse 
-| <[a-zA-Z][0-9a-zA-Z_]*> as id 
+| ['a'-'z' 'A'-'Z'] ['0'-'9' 'a'-'z' 'A'-'Z' '_']* as id 
 { 
     std::cout << "ID : " << id << std::endl;
 }
-| " " 
+| [' ' '\n' '\t' ] 
 {
     std::cout << "SPACE" << std::endl;
 }

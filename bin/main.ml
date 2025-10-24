@@ -8,9 +8,12 @@
 (* Module Loading                                                             *)
 (*----------------------------------------------------------------------------*)
 
-open MyLexing
-open MyParsing
 open MyUtil
+
+open Token
+open MyLexing
+(**
+open MyParsing
 open CodeGen
 
 open CppTemplate
@@ -23,7 +26,7 @@ external process_rule : (string * int * string * string) list ->
   (int * int * int * (int array array) * (int array) ) = "processRule"
 
 external get_alphabet : unit -> char array = "getAlphabet"
-
+*)
 (*----------------------------------------------------------------------------*)
 (* Arg Parsing                                                                *)
 (*----------------------------------------------------------------------------*)
@@ -57,6 +60,7 @@ let () =
   let _ = Printf.printf "Output Filename: %s\n" output_filename in
   let _ = Printf.printf "Debug: %b\n" debug_msgs in
   let str = MyUtil.read_file input_filename in
+  (*
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
   let flat_cases = MyParsing.flatten_rule lex_file.rule in 
@@ -73,4 +77,14 @@ let () =
   let gen_context = CppTemplate.context output_filename in
   let src_context = CodeGen.create_source_context start dead size ttable ctable lex_file in
   let _ = CodeGen.generate_code src_context gen_context in
-  () 
+  ()
+  *) 
+  let toks = MyLexing.tokenize2 str 0 in
+  let rec aux xs = 
+    match xs with
+    | [] -> ()
+    | x :: xs -> 
+      let _ = print_endline (Token.string_of_token x) in
+      aux xs
+  in 
+  aux toks 

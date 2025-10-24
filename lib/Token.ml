@@ -33,7 +33,15 @@ module Token = struct
     | NONE_PATT
     | EOF
     | COLON
+    | CHAR of char 
+    | STAR
+    | LPAREN
+    | RPAREN
+    | LBRACKET
+    | DASH
+    | RBRACKET
 
+    
   (* ------------------------------------------------------------------ *)
   (* Index mapping (stable numeric representation)                       *)
   (* ------------------------------------------------------------------ *)
@@ -56,6 +64,13 @@ module Token = struct
     | NONE_PATT -> 10
     | EOF -> 11
     | COLON -> 12
+    | CHAR _ -> 13
+    | STAR -> 14
+    | LPAREN -> 15
+    | RPAREN -> 16
+    | LBRACKET -> 17
+    | DASH -> 18
+    | RBRACKET -> 19
 
   (** Construct a token from a numeric index and optional string payload.
       Calling with an unknown index raises [Invalid_argument]. *)
@@ -74,6 +89,7 @@ module Token = struct
     | 10 -> NONE_PATT
     | 11 -> EOF
     | 12 -> COLON
+    | 13 -> invalid_arg "Cannot make token with string"
     | _ -> invalid_arg "Token.make_token: invalid index"
 
   (* ------------------------------------------------------------------ *)
@@ -97,5 +113,13 @@ module Token = struct
     | NONE_PATT -> "NONE_PATT"
     | EOF -> "EOF"
     | COLON -> "COLON"
+    | CHAR c -> (Printf.sprintf "CHAR(%c)" c)
+    | STAR -> "STAR"
+    | LPAREN -> "LPAREN"
+    | RPAREN -> "RPAREN"
+    | LBRACKET -> "LBRACKET"
+    | DASH -> "DASH"
+    | RBRACKET -> "RBRACKET"
+
 
 end

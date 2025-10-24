@@ -194,4 +194,99 @@ module MyLexing = struct
 
   (* call the helper and reverse its output *)
   List.rev ( helper buf [] )
+
+
+  let tokenize2 (str : string) (start : int)= 
+    let len = String.length str in
+    let pos = ref start in 
+  
+    let next() = if !pos < len then Some str.[!pos] else None in 
+    let peek() = if (!pos + 1) < len then Some str.[!pos+1] else None in
+    
+    let adv() = pos := !pos + 1 in 
+
+    let match_while (continue : char option -> bool) =
+      let start = !pos in 
+      let _ = adv () in 
+      let _ = while continue ( next () ) do
+        adv ()
+      done in
+      let matched = match next () with None -> false | _ -> true in
+      (String.sub str start (!pos-start+1)), matched
+    in
+
+    let rec lex () = 
+      match next() with  
+      | None | Some '\x00' -> Token.EOF
+      | Some (' ' | '\n' | '\t') -> let _ = adv () in lex ()
+      | Some ':' -> Token.COLON
+      | Some '|' -> Token.BAR
+      | Some '*' -> Token.STAR
+      | Some '(' -> Token.LPAREN
+      | Some ')' -> Token.RPAREN
+      | Some '[' -> Token.LBRACKET
+      | Some '-' -> Token.DASH
+      | Some ']' -> Token.RBRACKET
+      | Some '=' -> Token.EQUALS
+      | Some '_' when not (MyUtil.is_alnum_ex (peek())) -> Token.NONE_PATT
+      | Some '\'' ->
+      (
+        let continue = fun c -> 
+          match c with 
+          | Some '\'' -> false
+          | None -> false
+          | _ -> true
+        in let matched, found = match_while continue in
+        match found, String.length matched with
+        | false,_ -> failwith (Printf.sprintf "Unmatched ''' in '%s" matched)
+        | _, 4 when matched.[1] = '\\' -> Token.CHAR (MyUtil.escape matched.[2])
+        | _, 3 -> Token.CHAR (matched.[1])
+        | _ -> failwith (Printf.sprintf "'%s' is not a character." matched)
+      )
+      | Some '{' -> 
+      (
+        let ident = ref 0 in 
+        let continue = fun c -> 
+          match c with 
+          | Some '}' when !ident = 0 -> let _ = print_endline "end of }" in false
+          | Some '}' when !ident > 0 -> let _ = ident := !ident-1 in true
+          | Some '{' -> let _ = ident := !ident+1 in true          
+          | None -> false
+          | _ -> true
+        in let matched,found = match_while continue in 
+        if found then Token.CODE(MyUtil.trim matched) 
+        else failwith (Printf.sprintf "Unmatched '{' in %s" matched)
+      )
+     | Some '"' -> 
+      ( 
+        let continue = fun c -> 
+          match c with 
+          | Some '"' -> false  
+          | None -> false
+          | _ -> true
+        in let matched,found = match_while continue in 
+        if found then Token.STRING(MyUtil.trim matched) 
+        else failwith (Printf.sprintf "Unmatched '\"' in %s" matched)
+      )
+     | Some ('a'..'z' | 'A'..'Z' | '_' ) ->
+      (
+        let continue = fun c ->
+          match c with 
+          | Some ('a'..'z' | 'A'..'Z' | '_' | '0'..'9') -> true
+          | _ -> let _ = pos := !pos - 1 in false
+        in
+        let matched, _ = match_while continue in
+        Token.ID(matched)
+      )
+     | Some c -> failwith (Printf.sprintf "Unexpected character '%c'" c)
+    in
+    let rec aux toks = 
+      let tok = lex () in
+      let _ = Printf.printf "Found token: %s\n" (Token.string_of_token tok) in  
+      let _ = adv () in
+      match tok with 
+      | Token.EOF -> List.rev (tok :: toks)
+      | _ -> aux (tok :: toks)
+    in
+    aux []
 end

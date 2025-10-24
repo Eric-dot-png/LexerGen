@@ -10,7 +10,7 @@ run: $(OUT_DIR)
 	@dune exec -- ./bin/main.exe -i $(IFILE) -o $(OFILE) $(if $(filter true,$(DEBUG)),-d)
 
 log: $(OUT_DIR)
-	@dune exec -- ./bin/main.exe > $(OUT_DIR)/out.log
+	@dune exec -- ./bin/main.exe -i $(IFILE) -o $(OFILE) $(if $(filter true,$(DEBUG)),-d) > $(OUT_DIR)/out.log
 
 auto:
 	@dune build --watch
