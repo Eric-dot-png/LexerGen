@@ -12,6 +12,13 @@ module MyUtil = struct
     | 'r' -> '\r'
     | _ -> c
 
+  let descape (c : char) : string = 
+    match c with
+    | '\n' -> "\\n"
+    | '\t' -> "\\t"
+    | '\r' -> "\\r"
+    | _ -> Printf.sprintf "%c" c
+
   let is_alpha (c : char) : bool = 
     let code = Char.code c in
     (code >= Char.code 'a' && code <= Char.code 'z') ||
