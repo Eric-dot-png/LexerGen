@@ -248,7 +248,7 @@ module MyLexing = struct
         let ident = ref 0 in 
         let continue = fun c -> 
           match c with 
-          | Some '}' when !ident = 0 -> let _ = print_endline "end of }" in false
+          | Some '}' when !ident = 0 -> false
           | Some '}' when !ident > 0 -> let _ = ident := !ident-1 in true
           | Some '{' -> let _ = ident := !ident+1 in true          
           | None -> false
@@ -265,8 +265,8 @@ module MyLexing = struct
           | None -> false
           | _ -> true
         in let matched,found = match_while continue in 
-        if found then Token.STRING(MyUtil.trim matched) 
-        else failwith (Printf.sprintf "Unmatched '\"' in %s" matched)
+        if not found then failwith (Printf.sprintf "Unmatched '\"' in %s" matched)  
+        else Token.STRING(MyUtil.trim matched)
       )
      | Some ('a'..'z' | 'A'..'Z' | '_' ) ->
       (
@@ -276,13 +276,17 @@ module MyLexing = struct
           | _ -> let _ = pos := !pos - 1 in false
         in
         let matched, _ = match_while continue in
-        Token.ID(matched)
+        match matched with
+        | "rule" -> Token.RULE
+        | "parse" -> Token.PARSE
+        | "as" -> Token.AS
+        | "eof" -> Token.EOF_PATT
+        | _ -> Token.ID(matched)
       )
      | Some c -> failwith (Printf.sprintf "Unexpected character '%c'" c)
     in
     let rec aux toks = 
       let tok = lex () in
-      let _ = Printf.printf "Found token: %s\n" (Token.string_of_token tok) in  
       let _ = adv () in
       match tok with 
       | Token.EOF -> List.rev (tok :: toks)
