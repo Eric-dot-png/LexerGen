@@ -13,8 +13,7 @@ open MyUtil
 open Token
 open MyLexing
 open MyParsing
-(**
-open MyParsing
+(*
 open CodeGen
 
 open CppTemplate
@@ -89,5 +88,5 @@ let () =
       aux xs
   in 
   let _ = aux toks in
-  let _ = MyParsing.parse toks in 
+  let _lexfile = MyParsing.parse toks in 
   ()
