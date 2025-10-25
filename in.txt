@@ -3,6 +3,10 @@
 }
 
 rule lexer : void = parse 
+| "my name is " ['a'-'z' 'A'-'Z']* as name 
+{
+    std::cout << "Hello, " << name << "how are you?" << std::endl;
+}
 | ['a'-'z' 'A'-'Z'] ['0'-'9' 'a'-'z' 'A'-'Z' '_']* as id 
 { 
     std::cout << "ID : " << id << std::endl;

@@ -10,139 +10,134 @@ module MyParsing = struct
 
   type lex_file = {
     header : string;
-    rule : rule;
     trailer : string;
+    rule : rule;
   }
   and rule = {
-    name : string;
+    name : string; 
     return_type : string;
-    cases : case list;
     none_code : string;
     eof_code : string;
+    cases : case list
   }
   and case = {
-    pattern : pattern;
     alias : string;
-    code : string
+    code : string;
+    regex : regex;
   }
-  and pattern =
-  | Regex of string
+  and regex = 
+  | Emptyset 
+  | Eof 
+  | Char of char
   | String of string
+  | Union of regex * regex
+  | Cat of regex * regex
+  | Star of regex 
+  | CharRange of char * char
 
-  let clean_string_of_pattern ( patt : pattern ) : string = 
-    match patt with String(s) | Regex(s) -> MyUtil.trim s
+  let rec string_of_regex (r : regex) = 
+    match r with
+    | Emptyset -> "∅"
+    | Eof -> "eof"
+    | Char c -> Printf.sprintf "'%s'" (MyUtil.descape c)
+    | String s -> Printf.sprintf "\"%s\"" s
+    | Union (r1,r2) -> Printf.sprintf "(%s | %s)" (string_of_regex r1) (string_of_regex r2)
+    | Cat (r1,r2) -> Printf.sprintf "(%s · %s)" (string_of_regex r1) (string_of_regex r2)
+    | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
+    | CharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
 
-  let pattern_index ( patt : pattern ) : int = 
-    match patt with
-    | Regex(_) -> 0
-    | String(_) -> 1
-
-  let string_of_pattern ( patt : pattern ) : string =
-      match patt with 
-      | String(str) -> str
-      | Regex(rgx) ->  rgx 
-
-  let print_lex_file ( file : lex_file ) : unit = 
-    let line = String.make 50 '*' in
-    let _ = print_endline line in 
-    let _ = print_endline file.header in 
-    let f_rule = file.rule in 
-    let _ = Printf.printf "rule %s = parse\n" f_rule.name in
-
-    let rec print_cases ( cases : case list ) : unit = 
-      match cases with 
-      | case::cases -> 
-      (
-        let patt_str = string_of_pattern case.pattern in
-        if String.length case.alias != 0 then
-          let _ = Printf.printf "| %s as %s %s\n" patt_str case.alias case.code in 
-          print_cases cases 
-        else 
-          let _ = Printf.printf "| %s %s\n" patt_str case.code in
-          print_cases cases
-      )
-      | [] -> ()
-    in 
-    let _ = print_cases f_rule.cases in
-    let _ = print_endline file.trailer in
-    print_endline line
-
-  let parse ( toks : Token.token list ) : lex_file =
-    let rec get_header ( toks : Token.token list ) ( ret : lex_file ): lex_file = 
-      match toks with
-      | Token.CODE(code)::toks -> (get_rule toks {ret with header=MyUtil.trim code}) 
-      | _ -> ( get_rule toks {ret with header=""} )
-
-    and get_rule (toks : Token.token list ) ( ret : lex_file ): lex_file = 
+  let parse (toks : Token.token list) = 
+    let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in
+    let case_list = ref [] in
+    let rec parse_rule toks = 
       match toks with 
-      | Token.RULE :: Token.ID(id) :: Token.COLON :: Token.ID(ret_type) :: Token.EQUALS :: Token.PARSE::toks ->
-        get_cases toks { ret with rule={name=id;return_type=ret_type;cases=[];none_code="";eof_code="";}}
-      | _ -> failwith "Error" 
-    
-    and get_cases (toks : Token.token list) ( ret : lex_file ) : lex_file = 
-      match toks with
-      | Token.BAR :: ( ( Token.REGEX(_) | Token.STRING(_) | Token.NONE_PATT | Token.EOF_PATT) :: _ as toks )  -> get_case toks ret 
-      | Token.BAR :: _ -> failwith "Expected pattern following '|' "
-      | _ -> failwith "Expected '|' "
-
-    and get_case (toks : Token.token list) ( ret : lex_file ) : lex_file =
-      let helper tok alias code = 
-        match tok with 
-        | Token.REGEX(patt) -> {pattern=Regex(patt);alias=alias;code=code}
-        | Token.STRING(patt) -> {pattern=String(patt);alias=alias;code=code}
-        | _ -> failwith "Not possible"
+      | Token.RULE :: Token.ID(name) :: Token.COLON :: Token.ID(return_type) :: Token.EQUALS :: Token.PARSE :: rest -> 
+        let new_rule = {!lex_file.rule with name = name; return_type = return_type;} in 
+        let _ = lex_file := { !lex_file with rule = new_rule } in
+        parse_cases rest 
+      | _ -> failwith "rule declarations must be in the form rule <id> : <return> = parse"
+    and parse_cases (toks : Token.token list) =
+      let case, toks = parse_case toks in 
+      let _ = 
+        match case.regex with 
+        | Emptyset -> lex_file := {!lex_file with rule={!lex_file.rule with none_code=case.code}}
+        | Eof -> lex_file := {!lex_file with rule={!lex_file.rule with none_code=case.code}}
+        | _ -> case_list := (case :: !case_list) 
       in
-      match toks with
-      (* correct special cases (none and eof) *)
-      
-      | Token.NONE_PATT :: Token.CODE(none_code) :: rest -> 
-        let ret_rule = {ret.rule with none_code = MyUtil.trim none_code} in
-        check_done rest {ret with rule = ret_rule }
-      
-      | Token.EOF_PATT :: Token.CODE(eof_code) :: rest -> 
-        let ret_rule = {ret.rule with eof_code = MyUtil.trim eof_code} in
-        check_done rest {ret with rule = ret_rule }
-      
-      (* incorrect special cases *)
-      | ( Token.EOF_PATT | Token.NONE_PATT ) :: Token.AS :: _ -> failwith "Special Patterns (none and eof) are not aliasable" 
-      
-      (* correct non-special cases *)
-      | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.AS :: Token.ID(alias) :: Token.CODE(code) :: rest ->
-        let case_i = helper patt_tok alias (MyUtil.trim code) in 
-        let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
-        check_done rest { ret with rule=rule }
-      
-      | ( Token.REGEX(_) | Token.STRING(_) as patt_tok ) :: Token.CODE(code) :: rest -> 
-        let case_i = helper patt_tok "" (MyUtil.trim code) in 
-        let rule = { ret.rule with cases =  case_i :: ret.rule.cases } in
-        check_done rest { ret with rule=rule }
-      
-        (* incorrect non-special cases *)
-      | (Token.REGEX(_) | Token.STRING(_) ) :: Token.AS :: Token.CODE(_) :: _ -> failwith "Missing identifier for alias"
-      
-      | _ -> failwith "Unexpected token"
-
-    and check_done ( toks : Token.token list ) ( ret : lex_file ) : lex_file =
       match toks with 
-      | ( Token.CODE(_) :: _ as toks ) -> get_trailer toks ret 
-      | ( Token.BAR :: _ as toks ) -> get_cases toks ret 
-      | _ -> failwith "Error"  
-
-    and get_trailer ( toks : Token.token list ) ( ret : lex_file ) : lex_file = 
+      | ( Token.BAR :: _  as rest ) -> parse_cases rest 
+      | Token.CODE(trailer) :: Token.EOF :: [] -> lex_file := {!lex_file with trailer =trailer;}
+      | Token.CODE(_) :: tok :: _ | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s" (Token.string_of_token tok))
+      | [] -> () (* there is no trailer code *)
+    and parse_case (toks : Token.token list) =
+      let mustbar, toks = MyUtil.head toks in 
+      if (match mustbar with Token.BAR -> false | _ -> true) then 
+        failwith (Printf.sprintf "Expected '|' not token : %s" (Token.string_of_token mustbar))
+      else
+        let regex, toks = parse_regex toks in 
+        let _ = Printf.printf "Found regex: %s\n" (string_of_regex regex) in
+        let case = {alias="";code="";regex=regex;} in
+        match toks with
+        | Token.AS :: Token.ID(id) :: Token.CODE(code) :: rest -> {case with alias=id;code=code;}, rest
+        | Token.CODE(code) :: rest -> {case with code=code;}, rest
+        | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s" (Token.string_of_token tok))
+        | [] -> failwith (Printf.sprintf "Expected atleast 1 case in rule \"%s\"" !lex_file.rule.name)
+    and parse_regex (toks : Token.token list) = parse_union toks
+    and parse_union (toks : Token.token list) =
+      let left, toks = parse_cat toks in 
+      match toks with 
+      | Token.BAR :: rest -> 
+        let right, rest = parse_union rest in
+        Union (left,right), rest 
+      | toks -> left, toks
+    and parse_cat (toks : Token.token list) = 
+      let left, toks = parse_repeat toks in
       match toks with
-      | Token.CODE(code) :: Token.EOF :: [] -> {ret with trailer=MyUtil.trim code}
-      | Token.CODE(_) :: _ -> failwith "Unexpected tokens after trailer"
-      | _ -> failwith "Not Possible"
-    in
-    
-    let lfile = (get_header toks {header=""; rule={name=""; return_type=""; cases=[];none_code="";eof_code=""}; trailer=""}) in
-    let lrule = lfile.rule in
-    let lrule = {lrule with cases = (List.rev lrule.cases)} in
-    {lfile with rule=lrule}
-
-    let flatten_rule ( rule : rule ) : (string * int * string * string) list =
-      let flatten_case ( case : case ) : string * int * string * string =
-         ((clean_string_of_pattern case.pattern),  (pattern_index case.pattern), case.alias, case.code) in
-      List.map flatten_case rule.cases
+      | ( (Token.BAR | STRING _ | REGEX _ | CHAR _ | STAR | LPAREN | RPAREN | LBRACKET | DASH | RBRACKET ) :: _ as rest ) ->
+        let right, rest = parse_cat rest in
+        Cat (left,right), rest
+      | _ -> left, toks 
+    and parse_repeat (toks : Token.token list) = 
+      let atom, toks = parse_atomic toks in
+      match toks with 
+      | Token.STAR :: rest -> Star atom, rest
+      | _ -> atom, toks
+    and parse_atomic (toks : Token.token list) = 
+      match toks with 
+      | Token.NONE_PATT :: rest -> Emptyset, rest
+      | Token.EOF_PATT :: rest -> Eof, rest
+      | Token.STRING(str) :: rest -> String str, rest
+      | Token.CHAR(c) :: rest -> Char c, rest
+      | Token.LBRACKET :: toks -> 
+      (
+        let items, rest = parse_range_items toks in
+        match rest with 
+        | Token.RBRACKET :: rest -> items, rest
+        | _ -> failwith "Unmatched '['"
+      )
+      | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s, expected atomic." (Token.string_of_token tok))
+      | _ -> failwith "Missing atomic"
+    and parse_range_items (toks : Token.token list) = 
+      let left, toks = parse_range_item toks in 
+      match toks with
+      | (Token.RBRACKET :: _ as rest) -> left, rest
+      | _ -> 
+        let right,rest = parse_range_items toks in
+        Union (left, right), rest
+    and parse_range_item (toks : Token.token list) = 
+      match toks with
+      | Token.CHAR(left) :: Token.DASH :: Token.CHAR(right) :: rest -> 
+        CharRange (left,right), rest 
+      | Token.CHAR(c) :: rest -> Char c, rest 
+      | tok :: _ -> failwith (Printf.sprintf "Expected character token, not %s" (Token.string_of_token tok))
+      | [] -> failwith "Range must not be empty"
+    in 
+    let _ = 
+      match toks with
+      | Token.CODE(header) :: toks -> let _ = lex_file := {!lex_file with header=header} in parse_rule toks
+      | toks -> parse_rule toks 
+    in 
+    let new_rule = {!lex_file.rule with cases = !case_list} in 
+    {!lex_file with rule=new_rule} 
 
 end

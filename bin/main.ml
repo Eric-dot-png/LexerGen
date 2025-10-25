@@ -12,6 +12,7 @@ open MyUtil
 
 open Token
 open MyLexing
+open MyParsing
 (**
 open MyParsing
 open CodeGen
@@ -87,4 +88,6 @@ let () =
       let _ = print_endline (Token.string_of_token x) in
       aux xs
   in 
-  aux toks 
+  let _ = aux toks in
+  let _ = MyParsing.parse toks in 
+  ()
