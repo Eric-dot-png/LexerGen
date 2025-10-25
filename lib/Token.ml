@@ -12,6 +12,7 @@
 *)
 
 module Token = struct
+  open MyUtil
 
   (* ------------------------------------------------------------------ *)
   (* Token type                                                            *)
@@ -40,7 +41,6 @@ module Token = struct
     | LBRACKET
     | DASH
     | RBRACKET
-
     
   (* ------------------------------------------------------------------ *)
   (* Index mapping (stable numeric representation)                       *)
@@ -113,7 +113,7 @@ module Token = struct
     | NONE_PATT -> "NONE_PATT"
     | EOF -> "EOF"
     | COLON -> "COLON"
-    | CHAR c -> (Printf.sprintf "CHAR(%c)" c)
+    | CHAR c -> (Printf.sprintf "CHAR('%s')" (MyUtil.descape c))
     | STAR -> "STAR"
     | LPAREN -> "LPAREN"
     | RPAREN -> "RPAREN"
