@@ -79,7 +79,7 @@ let () =
   let _ = CodeGen.generate_code src_context gen_context in
   ()
   *) 
-  let toks = MyLexing.tokenize2 str 0 in
+  let toks = MyLexing.tokenize str 0 in
   let rec aux xs = 
     match xs with
     | [] -> ()
@@ -88,5 +88,20 @@ let () =
       aux xs
   in 
   let _ = aux toks in
-  let _lexfile = MyParsing.parse toks in 
+  let lexfile = MyParsing.parse toks in 
+  let cases = lexfile.rule.cases in 
+  let rec aux (cases : MyParsing.case list)= 
+    match cases with 
+    | [] -> ()
+    | x :: xs -> 
+      let flat = MyParsing.postorder x.regex in 
+      Printf.printf "Regex: %s\n  -> " (MyParsing.string_of_regex x.regex); 
+      let strli = List.map MyParsing.string_of_flat_regex flat in
+      List.iter print_string strli;
+      print_endline "";
+      aux xs;
+  in
+  aux cases;
+
+
   ()

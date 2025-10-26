@@ -8,6 +8,8 @@ module MyParsing = struct
   open Token
   open MyUtil
 
+  let fmt_failwith = MyUtil.fmt_failwith
+
   type lex_file = {
     header : string;
     trailer : string;
@@ -35,10 +37,27 @@ module MyParsing = struct
   | Star of regex 
   | CharRange of char * char
 
+  type flat_regex = 
+  | FChar of char
+  | FString of string
+  | FCharRange of char * char 
+  | FUnion
+  | FCat
+  | FStar
+
+  let string_of_flat_regex (fr : flat_regex) =
+    match fr with
+    | FChar c -> Printf.sprintf "'%s'" (MyUtil.descape c)
+    | FString s ->  Printf.sprintf "\"%s\"" s
+    | FCharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
+    | FUnion -> " | " 
+    | FCat -> " · " 
+    | FStar -> "*"
+
   let rec string_of_regex (r : regex) = 
     match r with
     | Emptyset -> "∅"
-    | Eof -> "eof"
+    | Eof -> "$"
     | Char c -> Printf.sprintf "'%s'" (MyUtil.descape c)
     | String s -> Printf.sprintf "\"%s\"" s
     | Union (r1,r2) -> Printf.sprintf "(%s | %s)" (string_of_regex r1) (string_of_regex r2)
@@ -46,6 +65,20 @@ module MyParsing = struct
     | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
     | CharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
 
+  let postorder (ast_root : regex) : flat_regex list = 
+    let rec aux todo result = 
+      match todo with
+      | [] -> result
+      | Char c :: todo -> aux todo ((FChar c)::result)
+      | String s :: todo -> aux todo ((FString s)::result)
+      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result)
+      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result)
+      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result)
+      | Star regex :: todo -> aux (regex::todo) (FStar::result)
+      | regex :: _ -> fmt_failwith "Regex %s should not be used in postoder" (string_of_regex regex)
+    in
+    aux [ast_root] []
+    
   let parse (toks : Token.token list) = 
     let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in
     let case_list = ref [] in
@@ -67,21 +100,20 @@ module MyParsing = struct
       match toks with 
       | ( Token.BAR :: _  as rest ) -> parse_cases rest 
       | Token.CODE(trailer) :: Token.EOF :: [] -> lex_file := {!lex_file with trailer =trailer;}
-      | Token.CODE(_) :: tok :: _ | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s" (Token.string_of_token tok))
+      | Token.CODE(_) :: tok :: _ | tok :: _ -> fmt_failwith "Unexpected token : %s" (Token.string_of_token tok)
       | [] -> () (* there is no trailer code *)
     and parse_case (toks : Token.token list) =
       let mustbar, toks = MyUtil.head toks in 
       if (match mustbar with Token.BAR -> false | _ -> true) then 
-        failwith (Printf.sprintf "Expected '|' not token : %s" (Token.string_of_token mustbar))
+        fmt_failwith "Expected '|' not token : %s" (Token.string_of_token mustbar)
       else
         let regex, toks = parse_regex toks in 
-        let _ = Printf.printf "Found regex: %s\n" (string_of_regex regex) in
         let case = {alias="";code="";regex=regex;} in
         match toks with
         | Token.AS :: Token.ID(id) :: Token.CODE(code) :: rest -> {case with alias=id;code=code;}, rest
         | Token.CODE(code) :: rest -> {case with code=code;}, rest
-        | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s" (Token.string_of_token tok))
-        | [] -> failwith (Printf.sprintf "Expected atleast 1 case in rule \"%s\"" !lex_file.rule.name)
+        | tok :: _ -> fmt_failwith "Unexpected token : %s" (Token.string_of_token tok)
+        | [] -> fmt_failwith "Expected atleast 1 case in rule \"%s\"" !lex_file.rule.name
     and parse_regex (toks : Token.token list) = parse_union toks
     and parse_union (toks : Token.token list) =
       let left, toks = parse_cat toks in 
@@ -115,7 +147,7 @@ module MyParsing = struct
         | Token.RBRACKET :: rest -> items, rest
         | _ -> failwith "Unmatched '['"
       )
-      | tok :: _ -> failwith (Printf.sprintf "Unexpected token : %s, expected atomic." (Token.string_of_token tok))
+      | tok :: _ -> fmt_failwith "Unexpected token : %s, expected atomic." (Token.string_of_token tok)
       | _ -> failwith "Missing atomic"
     and parse_range_items (toks : Token.token list) = 
       let left, toks = parse_range_item toks in 
@@ -129,7 +161,7 @@ module MyParsing = struct
       | Token.CHAR(left) :: Token.DASH :: Token.CHAR(right) :: rest -> 
         CharRange (left,right), rest 
       | Token.CHAR(c) :: rest -> Char c, rest 
-      | tok :: _ -> failwith (Printf.sprintf "Expected character token, not %s" (Token.string_of_token tok))
+      | tok :: _ -> fmt_failwith "Expected character token, not %s" (Token.string_of_token tok)
       | [] -> failwith "Range must not be empty"
     in 
     let _ = 
