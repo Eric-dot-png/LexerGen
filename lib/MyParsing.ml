@@ -65,19 +65,23 @@ module MyParsing = struct
     | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
     | CharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
 
-  let postorder (ast_root : regex) : flat_regex list * int = 
-    let rec aux todo result len = 
+  (** [postorder ast_root] returns the postorder flat_re typed list of [ast_root] along with
+      the length of this list, and the number of string types in this list.
+      @param ast_root the root of the regex ast 
+      @return postorder list, size, nStrings *)
+  let postorder (ast_root : regex) : flat_regex list * int * int = 
+    let rec aux todo result len numStr = 
       match todo with
-      | [] -> result, len
-      | Char c :: todo -> aux todo ((FChar c)::result) (len+1)
-      | String s :: todo -> aux todo ((FString s)::result) (len+1)
-      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result) (len+1)
-      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result) (len+1)
-      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result) (len+1)
-      | Star regex :: todo -> aux (regex::todo) (FStar::result) (len+1)
+      | [] -> result, len, numStr
+      | Char c :: todo -> aux todo ((FChar c)::result) (len+1) numStr
+      | String s :: todo -> aux todo ((FString s)::result) (len+1) (numStr)
+      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result) (len+1) numStr
+      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result) (len+1) numStr
+      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result) (len+1) numStr
+      | Star regex :: todo -> aux (regex::todo) (FStar::result) (len+1) numStr
       | regex :: _ -> fmt_failwith "Regex %s should not be used in postoder" (string_of_regex regex)
     in
-    aux [ast_root] [] 0
+    aux [ast_root] [] 0 0
     
   let parse (toks : Token.token list) = 
     let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in
