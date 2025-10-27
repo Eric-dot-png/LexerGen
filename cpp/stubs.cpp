@@ -5,6 +5,7 @@
 #include "liblexer/include/NFABuilder.hpp"
 #include "liblexer/include/DFA.hpp"
 #include "liblexer/include/Regex.hpp"
+#include "liblexer/include/LexerUtil/Constants.hpp"
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -82,9 +83,9 @@ extern "C"
         CAMLlocal1(ocaml_re);
 
         // allocate a vector to hold the res from ocaml
-        int lenList = Val_long(ocaml_list_len);
+        const size_t LEN_RE_LIST = Val_int(ocaml_list_len);
         std::vector<Regex::Flat::Type> cppREs; 
-        cppREs.reserve(static_cast<size_t>(lenList));
+        cppREs.reserve(static_cast<size_t>(LEN_RE_LIST));
 
         // loop over the ocaml_re_list and convert the re to
         // cpp versions of the res
@@ -94,8 +95,58 @@ extern "C"
             cppREs.emplace_back(MakeCppRe(ocaml_re));
             ocaml_re_list = Field(ocaml_re_list, 1); // advance head
         }
-    }
 
+        // use the library to build the dfa
+        const DFA m( NFABuilder::Build<Regex::ItOrder::POST>(cppREs) );
+        const size_t NUM_STATES = m.States().size();
+
+        // now convert the dfa to ocaml-friendly types
+        CAMLlocal3(ocaml_ttable, ocaml_state_ttable, ocaml_ctable);
+        ocaml_ttable = caml_alloc(NUM_STATES, 0);
+        ocaml_ctable = caml_alloc(NUM_STATES, 0);
+        
+        // initialize case table with empty cases
+        for (size_t case_index = 0; case_index < LEN_RE_LIST; ++case_index)
+        {
+            Store_field(ocaml_ctable, int(case_index), 
+                Val_int((int) NO_CASE_TAG));
+        }
+
+        // iterate over the state vector updating case and transition tables
+        for (const DFA::State& state : m.States())
+        {
+            // allocate space for an individual state's transition table
+            ocaml_state_ttable = caml_alloc(ALPHABET_SIZE+1, 0);
+            
+            // include symbols not included in alphabet, but in ascii 
+            Store_field(ocaml_state_ttable, '\0', m.Dead());
+            Store_field(ocaml_state_ttable, char(127), m.Dead());
+            
+            // iterate over the alphabet and get the state's result transition
+            // over the symbol
+            for (char sym : ALPHABET)
+            {
+                Store_field(ocaml_state_ttable, int(sym), 
+                    state.transitions.at(sym)); 
+            }
+            // store the individual state's ttable in the master ttable 
+            Store_field(ocaml_ttable, int(state.index), ocaml_state_ttable);
+            
+            // update the case table with the state and the state's tag
+            Store_field(ocaml_ctable, state.index, Val_int(state.caseTag));
+        }
+
+        // create and return tuple with start state, dead state, number of 
+        // states, and transition table
+        CAMLlocal1(ret);
+        ret = caml_alloc_tuple(5);
+        Store_field(ret, 0, ocaml_ttable);
+        Store_field(ret, 1, ocaml_ctable);
+        Store_field(ret, 2, Val_int(m.Start()));
+        Store_field(ret, 3, Val_int(m.Dead()));
+        Store_field(ret, 4, Val_int(NUM_STATES));
+        CAMLreturn(ret);
+    }
 }
 
 
@@ -112,7 +163,6 @@ extern "C"
  */
 Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
 {
-    // ocaml var declares
     CAMLparam0();
     CAMLlocal2(ocaml_re, ocaml_re_sym);
 
@@ -126,6 +176,7 @@ Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
         {OcamlReTags::FSTAR, MakeFlatOp<Regex::Flat::KleeneStar_t>}  
     };
 
+    // get the ocaml re instance and it's size
     ocaml_re = Field(ocaml_re_pair, 0);
     int reSize = Int_val(Field(ocaml_re_pair, 1));
 
