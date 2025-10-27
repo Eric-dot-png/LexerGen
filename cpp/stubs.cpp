@@ -130,7 +130,7 @@ extern "C"
         for (const DFA::State& state : m.States())
         {
             // allocate space for an individual state's transition table
-            ocaml_state_ttable = caml_alloc(ALPHABET_SIZE+1, 0);
+            ocaml_state_ttable = caml_alloc(ALPHABET_SIZE+2, 0);
             
             // include symbols not included in alphabet, but in ascii 
             Store_field(ocaml_state_ttable, '\0', m.Dead());

@@ -11,12 +11,9 @@
 open MyUtil
 open MyLexing
 open MyParsing
-
-(*
 open CodeGen
-
 open CppTemplate
-*)
+
 (*----------------------------------------------------------------------------*)
 (* External Function loading                                                  *)
 (*----------------------------------------------------------------------------*)
@@ -57,29 +54,10 @@ let () =
   Printf.printf "Output Filename: %s\n" output_filename;
   Printf.printf "Debug: %b\n" debug_msgs;
   let file_contents = MyUtil.read_file input_filename in
-  (*
-  let toks = MyLexing.lexAll str in
-  let lex_file = MyParsing.parse toks in 
-  let flat_cases = MyParsing.flatten_rule lex_file.rule in 
-  let alphabet = get_alphabet () in
-  let alphabet_size = Array.length alphabet in
-  let start, dead, size, ttable , ctable = process_rule flat_cases in
-  let _ = Printf.printf "Alphabet size: %d\n" alphabet_size in
-  let _ = Printf.printf "Start State: %d\n" start in
-  let _ = Printf.printf "Dead State: %d\n" dead in
-  let _ = Printf.printf "Number of States: %d\n" size in
-  let _ = Printf.printf "Number of Transitions: %d\n" ( size * alphabet_size ) in
-  let _ = Printf.printf "ctable size: %d\n" (Array.length ctable) in
-  let _ = Printf.printf "ttable size: %d x %d\n" (Array.length ttable) (Array.length ttable.(0)) in
-  let gen_context = CppTemplate.context output_filename in
-  let src_context = CodeGen.create_source_context start dead size ttable ctable lex_file in
-  let _ = CodeGen.generate_code src_context gen_context in
-  ()
-  *) 
   let toks = MyLexing.tokenize file_contents 0 in
   (*List.iter (fun tok -> print_endline (Token.string_of_token tok)) toks;*)
-  let lexfile = MyParsing.parse toks in 
-  let cases = lexfile.rule.cases in 
+  let lex_file = MyParsing.parse toks in 
+  let cases = lex_file.rule.cases in 
   let rec aux (cases : MyParsing.case list)= 
     match cases with 
     | [] -> ()
@@ -102,5 +80,13 @@ let () =
   let postorder_tuples = 
     List.map (fun (re,len_re,_) -> (re,len_re)) postorder_tuples
   in
-  let _ = _make_dfa postorder_tuples num_tuples number_strings in
+  let ttable, ctable, start, dead, size = _make_dfa postorder_tuples num_tuples number_strings in
+  Printf.printf "Start State: %d\n" start;
+  Printf.printf "Dead State: %d\n" dead;
+  Printf.printf "Number of States: %d\n" size;
+  Printf.printf "ctable size: %d\n" (Array.length ctable);
+  Printf.printf "ttable size: %d x %d\n" (Array.length ttable) (Array.length ttable.(0));
+  let gen_context = CppTemplate.context output_filename in
+  let src_context = CodeGen.create_source_context start dead size ttable ctable lex_file in
+  CodeGen.generate_code src_context gen_context;
   ()
