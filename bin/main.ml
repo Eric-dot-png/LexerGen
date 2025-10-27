@@ -9,10 +9,9 @@
 (*----------------------------------------------------------------------------*)
 
 open MyUtil
-
-open Token
 open MyLexing
 open MyParsing
+
 (*
 open CodeGen
 
@@ -22,7 +21,7 @@ open CppTemplate
 (* External Function loading                                                  *)
 (*----------------------------------------------------------------------------*)
 
-external _make_dfa : (MyParsing.flat_regex list * int) list * int -> 
+external _make_dfa : (MyParsing.flat_regex list * int) list -> int -> int ->
   (int array array) * int array * int * int * int = "MakeDFA"
 
 (*----------------------------------------------------------------------------*)
@@ -54,10 +53,10 @@ let parse_args : string * string * bool =
 
 let () = 
   let input_filename, output_filename, debug_msgs = parse_args in 
-  let _ = Printf.printf "Input Filename: %s\n" input_filename in
-  let _ = Printf.printf "Output Filename: %s\n" output_filename in
-  let _ = Printf.printf "Debug: %b\n" debug_msgs in
-  let str = MyUtil.read_file input_filename in
+  Printf.printf "Input Filename: %s\n" input_filename;
+  Printf.printf "Output Filename: %s\n" output_filename;
+  Printf.printf "Debug: %b\n" debug_msgs;
+  let file_contents = MyUtil.read_file input_filename in
   (*
   let toks = MyLexing.lexAll str in
   let lex_file = MyParsing.parse toks in 
@@ -77,15 +76,8 @@ let () =
   let _ = CodeGen.generate_code src_context gen_context in
   ()
   *) 
-  let toks = MyLexing.tokenize str 0 in
-  let rec aux xs = 
-    match xs with
-    | [] -> ()
-    | x :: xs -> 
-      let _ = print_endline (Token.string_of_token x) in
-      aux xs
-  in 
-  let _ = aux toks in
+  let toks = MyLexing.tokenize file_contents 0 in
+  (*List.iter (fun tok -> print_endline (Token.string_of_token tok)) toks;*)
   let lexfile = MyParsing.parse toks in 
   let cases = lexfile.rule.cases in 
   let rec aux (cases : MyParsing.case list)= 
@@ -100,6 +92,15 @@ let () =
       aux xs;
   in
   aux cases;
-
-
+  let postorder_tuples = 
+    List.map (fun (case : MyParsing.case) -> MyParsing.postorder case.regex) cases 
+  in
+  let num_tuples = List.length postorder_tuples in
+  let number_strings = 
+    List.fold_right (fun (_,_,nStr) acc -> nStr + acc) postorder_tuples 0
+  in 
+  let postorder_tuples = 
+    List.map (fun (re,len_re,_) -> (re,len_re)) postorder_tuples
+  in
+  let _ = _make_dfa postorder_tuples num_tuples number_strings in
   ()

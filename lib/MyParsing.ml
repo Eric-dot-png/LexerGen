@@ -50,8 +50,8 @@ module MyParsing = struct
     | FChar c -> Printf.sprintf "'%s'" (MyUtil.descape c)
     | FString s ->  Printf.sprintf "\"%s\"" s
     | FCharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
-    | FUnion -> " | " 
-    | FCat -> " · " 
+    | FUnion -> "|" 
+    | FCat -> "·" 
     | FStar -> "*"
 
   let rec string_of_regex (r : regex) = 
@@ -173,7 +173,7 @@ module MyParsing = struct
       | Token.CODE(header) :: toks -> let _ = lex_file := {!lex_file with header=header} in parse_rule toks
       | toks -> parse_rule toks 
     in 
-    let new_rule = {!lex_file.rule with cases = !case_list} in 
+    let new_rule = {!lex_file.rule with cases = List.rev !case_list} in 
     {!lex_file with rule=new_rule} 
 
 end

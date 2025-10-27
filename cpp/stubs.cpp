@@ -16,6 +16,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <iostream>
 
 /// -----------------------------------------------------------------------
 /// Interface Constants 
@@ -32,7 +33,8 @@ enum class OcamlReTags : size_t
     FCHAR = 0, 
     FSTRING,
     FCHAR_RANGE,
-    FUNION,
+    START_OPS, 
+    FUNION = START_OPS,
     FCAT,
     FSTAR, 
     SIZE // total number of ocaml tags in this enum 
@@ -48,12 +50,18 @@ using ConvertFunction_t = std::function<Regex::Flat::Symbol(value)>;
 /// Non Ocaml Accessable Function Prototypes
 /// -----------------------------------------------------------------------
 
+OcamlReTags DeduceTag(value ocaml_re_sym);
 
-Regex::Flat::Type MakeCppRe(value ocaml_re_pair);
+Regex::Flat::Type MakeCppRe(value ocaml_re_pair, 
+    std::vector<std::string>& stringBuffer);
+
 Regex::Flat::Char_t MakeChar(value ocaml_symbol);
+
 Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol, 
-        std::vector<std::string>& stringBuf);
+    std::vector<std::string>& stringBuffer);
+
 Regex::Flat::Charset_t MakeCharset(value ocaml_symbol);
+
 template <typename OP> OP MakeFlatOp([[maybe_unused]] value ocaml_symbol);
 
 
@@ -77,22 +85,28 @@ extern "C"
      *          4. dead state index
      *          5. size of dfa (num states)
      */
-    CAMLprim value MakeDFA(value ocaml_re_list, value ocaml_list_len)
+    CAMLprim value MakeDFA(value ocaml_re_list, value ocaml_list_len, 
+        value ocaml_num_str)
     {
         CAMLparam2(ocaml_re_list, ocaml_list_len);
         CAMLlocal1(ocaml_re);
 
         // allocate a vector to hold the res from ocaml
-        const size_t LEN_RE_LIST = Val_int(ocaml_list_len);
+        const size_t LEN_RE_LIST = size_t(Val_int(ocaml_list_len));
         std::vector<Regex::Flat::Type> cppREs; 
         cppREs.reserve(static_cast<size_t>(LEN_RE_LIST));
 
+        // allocate a vector of strings used as literals
+        const size_t NUM_STRINGS = size_t(Val_int(ocaml_num_str));
+        std::vector<std::string> stringBuffer;
+        stringBuffer.reserve(NUM_STRINGS);
+
         // loop over the ocaml_re_list and convert the re to
         // cpp versions of the res
-        while (ocaml_re_list != Val_int(0)) // while list != []
+        while (ocaml_re_list != Val_emptylist) // while list != []
         {
             ocaml_re = Field(ocaml_re_list, 0);
-            cppREs.emplace_back(MakeCppRe(ocaml_re));
+            cppREs.emplace_back(MakeCppRe(ocaml_re, stringBuffer));
             ocaml_re_list = Field(ocaml_re_list, 1); // advance head
         }
 
@@ -161,7 +175,8 @@ extern "C"
  * 
  *  @return Constructed cpp re
  */
-Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
+Regex::Flat::Type MakeCppRe(value ocaml_re_pair, 
+    std::vector<std::string>& stringBuffer)
 {
     CAMLparam0();
     CAMLlocal2(ocaml_re, ocaml_re_sym);
@@ -178,16 +193,11 @@ Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
 
     // get the ocaml re instance and it's size
     ocaml_re = Field(ocaml_re_pair, 0);
-    int reSize = Int_val(Field(ocaml_re_pair, 1));
-
+    size_t THIS_RE_SIZE = size_t(Int_val(Field(ocaml_re_pair, 1)));
+    
     // create the cpp re instance 
     Regex::Flat::Type cppRe; 
-    cppRe.reserve(static_cast<size_t>(reSize));
-
-    // create a buffer for strings in ocaml. Must do this because 
-    // std::string_view does not work with ocaml strings (cant deduce size)
-    std::vector<std::string> stringBuffer;
-    stringBuffer.reserve(static_cast<size_t>(reSize));
+    cppRe.reserve(static_cast<size_t>(THIS_RE_SIZE));
 
     // now that we've created the string buffer for this function, add the
     // string conversion function (which depends on the buffer)
@@ -197,11 +207,11 @@ Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
     );
     
     // process all symbols, converting them into cpp re symbols
-    while (ocaml_re != Int_val(0)) // while ocaml_re != []
+    while (ocaml_re != Val_emptylist)
     {
         // get the current symbol and deduce it's tag
         ocaml_re_sym = Field(ocaml_re, 0);
-        OcamlReTags tag = static_cast<OcamlReTags>(Tag_val(ocaml_re_sym));
+        OcamlReTags tag = DeduceTag(ocaml_re_sym);
         
         // add the converted re sym to the cppRE
         cppRe.emplace_back( convMap[tag](ocaml_re_sym) );
@@ -209,7 +219,7 @@ Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
         // advance the head
         ocaml_re = Field(ocaml_re, 1);
     }
-    
+
     // now cleanup. Important to remove the MakeLiteral function ptr we 
     // added earlier, as the conv map is static. 
     convMap.erase(OcamlReTags::FSTRING);
@@ -234,7 +244,7 @@ inline Regex::Flat::Char_t MakeChar(value ocaml_symbol)
 /** @brief Function to make a cpp re literal (string) type from an ocaml symbol.
  * 
  *  @param ocaml_symbol ocaml symbol
- *  @param stringBuf cpp memory buffer for strings. Warning: If a pushback 
+ *  @param stringBuffer cpp memory buffer for strings. Warning: If a pushback 
  *                   requires the buf vector to be resized, it will cause the 
  *                   cpp re literal's view of the string to be invalid, causing 
  *                   mem/seg fault. Allocate buffer vector properly.
@@ -242,12 +252,11 @@ inline Regex::Flat::Char_t MakeChar(value ocaml_symbol)
  *  @return Constructed cpp re literal type
  */
 inline Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol, 
-    std::vector<std::string>& stringBuf)
+    std::vector<std::string>& stringBuffer)
 {
     const char * const pStr = String_val(Field(ocaml_symbol, 0));
-    stringBuf.emplace_back(pStr);
-    
-    return Regex::Flat::Literal_t{ std::string_view ( stringBuf.back() ) };
+    stringBuffer.emplace_back(pStr);
+    return Regex::Flat::Literal_t{ std::string_view ( stringBuffer.back() ) };
 }
 
 
@@ -280,4 +289,17 @@ template <typename OP>
 OP MakeFlatOp([[maybe_unused]] value ocaml_symbol)
 {
     return OP{ };
+}
+
+OcamlReTags DeduceTag(value ocaml_re_sym)
+{
+    if (Is_block(ocaml_re_sym))
+    {
+        return static_cast<OcamlReTags>(Tag_val(ocaml_re_sym));
+    }
+    else
+    {
+        static constexpr size_t OFFSET = size_t(OcamlReTags::START_OPS);
+        return static_cast<OcamlReTags>(Long_val(ocaml_re_sym) + OFFSET);
+    }
 }
