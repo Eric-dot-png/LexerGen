@@ -17,16 +17,14 @@ open MyParsing
 open CodeGen
 
 open CppTemplate
-
+*)
 (*----------------------------------------------------------------------------*)
 (* External Function loading                                                  *)
 (*----------------------------------------------------------------------------*)
 
-external process_rule : (string * int * string * string) list -> 
-  (int * int * int * (int array array) * (int array) ) = "processRule"
+external _make_dfa : (MyParsing.flat_regex list * int) list * int -> 
+  (int array array) * int array * int * int * int = "MakeDFA"
 
-external get_alphabet : unit -> char array = "getAlphabet"
-*)
 (*----------------------------------------------------------------------------*)
 (* Arg Parsing                                                                *)
 (*----------------------------------------------------------------------------*)
