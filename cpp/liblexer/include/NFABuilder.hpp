@@ -2,7 +2,7 @@
 /// @brief NFA builder class
 
 #include "NFA.hpp"
-#include "PreProcessor.hpp"
+#include "Regex.hpp"
 
 #include <cstddef>
 #include <vector>
@@ -24,18 +24,15 @@ public:
     NFABuilder& operator=(const NFABuilder&&) = delete;
 
     /// -----------------------------------------------------------------------
-    /// Public api methods and constants
+    /// Public api methods 
     /// -----------------------------------------------------------------------
 
-    /// @brief The maximum allowed states allowed for a generated NFA
-    static constexpr size_t MAX_STATE_COUNT = 500'000;
-
-    /// @brief method to construct an nfa from pre-processed patterns
-    /// @note If the patterns are not passed through the preprocessor, they 
-    ///       will be treated as strings
-    /// @param preProcessedPatterns patterns that have been pre-processed
-    /// @return the NFA constructed from the patterns
-    static NFA Build(std::vector<RuleCase> preProcessedPatterns);
+    /// @brief method to construct an nfa from a flat regex type 
+    /// @tparam It the iteration type of the flat regex
+    /// @param expr expressions to build the nfa from
+    /// @return the constructed NFA from the regex
+    template <Regex::ItOrder It>
+    static NFA Build(const std::vector<Regex::Flat::Type>& exprs);
 
 private:
     /// @brief struct representing a fragment. a fragment has an index, but
@@ -52,13 +49,14 @@ private:
         std::vector<Hole> holes; ///< transitions to be patched
     };
 
-    
-    /// -----------------------------------------------------------------------
-    ///  Debug functions (to be removed)
-    /// -----------------------------------------------------------------------
-    #warning debug functions are enabled
-
-    static void Debug(const Fragment& frag);
+    /// @brief Method to build a nearly completed (untagged) NFA fragment from an RE
+    /// @tparam It the iteration method 
+    /// @param[in] expr the expression to build from
+    /// @param[out] states the vector of states belonging to the nfa
+    /// @return the nearly completed NFA fragment to be finalized.
+    template <Regex::ItOrder It>
+    static Fragment BuildFragment(const Regex::Flat::Type& expr, 
+        std::vector<NFA::State>& states);
 
     
     /// @brief method to patch a fragment's holes (in the state vector)
@@ -68,24 +66,40 @@ private:
     static void PatchHoles(const std::vector<Fragment::Hole>& holes,
         size_t patchIndex, std::vector<NFA::State>& nfaStates);
 
-    /// @brief method to create a new state with no rule tag and add it to
+    /// @brief method to create a new state with a case tag and add it to
     ///        the state vector
     /// @param nfaStates the state vector to add the new state to
+    /// @param caseNo the case number to tag the state with
+    /// @param estTCount the estimated number of transitions out of this state
     /// @return the index of the new state added (previous size of the array)
-    static size_t NewState(std::vector<NFA::State>& nfaStates);
-    
-    /// @brief method to create a new state with a rule tag and add it to
-    ///        the state vector
-    /// @param ruleNo the rule number to tag the state with
-    /// @param nfaStates the state vector to add the new state to
-    /// @return the index of the new state added (previous size of the array)
-    static size_t NewState(size_t ruleNo, std::vector<NFA::State>& nfaStates);
+    static size_t NewState(std::vector<NFA::State>& nfaStates, size_t caseNo, size_t estTCount);
 
-    /// @brief method to create a literal fragment
-    /// @param a the transition (literal) value
+    /// @brief method to create a new state without a case tag and add it to
+    ///        the nfa state vector
+    /// @param nfaStates the state vector to add the new state to
+    /// @param estTCount the case number to 
+    /// @return the index of the new state added (previous size of the array)
+    static size_t NewState(std::vector<NFA::State>& nfaStates, size_t estTCount);
+
+    /// @brief method to create a character fragment
+    /// @param a the transition (character) value
     /// @param nfaStates the state vector of the current nfa
-    /// @return 
-    static Fragment MakeLiteral(char a, std::vector<NFA::State>& nfaStates);
+    /// @return the constructed fragment
+    static Fragment MakeChar(char a, std::vector<NFA::State>& nfaStates);
+
+    /// @brief method to create a set/range of characters to transition from
+    /// @param lo the low end of the range
+    /// @param hi the hi end (inclusive) of the range
+    /// @param inverted if the range is to be inverted (\Sigma - S)
+    /// @param nfaStates the nfa states
+    /// @return the constructed fragment 
+    static Fragment MakeCharset(char lo, char hi, bool inverted, std::vector<NFA::State>& nfaStates);
+
+    /// @brief method to create a literal/string fragment
+    /// @param string the string to create the fragment from 
+    /// @param nfaStates the nfa states
+    /// @return the constructed fragment 
+    static Fragment MakeLiteral(std::string_view string, std::vector<NFA::State>& nfaStates);
 
     /// @brief method to apply a concatination operator to two fragments
     /// @param left the left fragment 
@@ -116,21 +130,17 @@ private:
     /// @return the constructed fragment
     static Fragment ApplyKPlus(const Fragment& fragment,
         std::vector<NFA::State>& nfaStates);
-
+    
     static Fragment ApplyKOpt(const Fragment& fragment,
         std::vector<NFA::State>& nfaStates);
-
-    static Fragment ApplyOperator(PreProcessor::Operator_t op, std::stack<Fragment>& fragStack,
-        std::vector<NFA::State>& nfaStates);
-
-    static void BuildFragment(const RuleCase& pattern, 
-        std::vector<NFA::State>& nfaStates, Fragment& fragment);
 
     static size_t ConcludeCase(size_t ruleNo, Fragment& ruleFragment, 
         std::vector<NFA::State>& nfaStates, 
         std::unordered_set<size_t>& nfaAccepting);
 
-    static void ShuntingYard(const RuleCase& pattern, Fragment& fragment,  std::vector<NFA::State>& nfaStates);
-
+    /// -----------------------------------------------------------------------
+    ///  Debug functions (to be removed)
+    /// -----------------------------------------------------------------------
+    static void Debug(const Fragment& frag);
 
 };

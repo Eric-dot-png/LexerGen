@@ -32,5 +32,5 @@ struct NFA
 
     const std::unordered_set<size_t> & Accepting() const { return accept; }
     const std::vector<State>& States() const { return states; }
-    const size_t Start() const { return start; }
+    size_t Start() const { return start; }
 };

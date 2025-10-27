@@ -1,27 +1,19 @@
 /// @file Constants.hpp
 /// @brief Contains project-wide constants
+/// @todo make this a std::range
 
 #pragma once
 
 #include <limits>
 #include <cstddef>
 #include <unordered_set>
+#include <ranges>
 
-/// @brief The alphabet used by the project. Includes printable ASCII 
-///        characters, EOF, tab, and newline.
-const std::unordered_set<char> ALPHABET = []()
-{
-    std::unordered_set<char> ret{ };
-    for (int c = 32; c < 128; ++c)
-    {
-        //DBG << (char) c << std::endl;
-        ret.insert((char)c);
-    }
-    ret.insert('\t');
-    ret.insert('\n');
-    
-    return ret;
-}();
+/// @brief alphabet of this library. Note that '\0' is not included, nore 127
+constexpr std::ranges::view auto ALPHABET = std::views::iota(char(1), char(127));
+
+//// @brief size of the alphabet of this library
+constexpr size_t ALPHABET_SIZE = std::ranges::distance(ALPHABET);
 
 /// @brief state not having a rule associated with it
 constexpr size_t NO_CASE_TAG = std::numeric_limits<std::size_t>::max();

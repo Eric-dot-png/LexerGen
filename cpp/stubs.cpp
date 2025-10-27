@@ -2,120 +2,231 @@
 /// @brief entry point for ocaml interface
 /// @brief in this file, cpp vars are written in caml case, and ocaml vals are in snake case
 
-#include "liblexer/include/RuleCase.hpp"
 #include "liblexer/include/NFABuilder.hpp"
 #include "liblexer/include/DFA.hpp"
-#include "liblexer/include/LexerUtil/Drawing.hpp"
-#include "liblexer/include/LexerUtil/Constants.hpp"
+#include "liblexer/include/Regex.hpp"
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/custom.h>
-#include <caml/fail.h>
 
-#include <limits>
-#include <iostream>
-#include <iomanip>
+#include <unordered_map>
+#include <functional>
+#include <string>
 #include <vector>
 
-/// @brief the smallest char value [inclusive]
-constexpr size_t CHAR_MIN = std::numeric_limits<unsigned char>::min();
+/// -----------------------------------------------------------------------
+/// Interface Constants 
+/// -----------------------------------------------------------------------
 
-/// @brief the largest char value [inclusive]
-constexpr size_t CHAR_MAX = std::numeric_limits<char>::max();
 
-/// @brief api method to process a rule from ocaml
-/// @param ruleCases the list of rule cases (pattern, type, alias, action)
-/// @return ocaml tuple of 
-///         `(start state, dead state, number of states, transition table, case tag table)`. 
-///         the transition table is an ocaml array representing the transition table. 
-///         `table[s][char] = s'` dead state does not have any outgoing transitions.
-///         the case tag table is an ocaml array representing the case tag for each state.
-///         `case_table[state_tag] = case_tag` where `case_tag` is the case number associated with `state` 
-///         if any, or `NO_CASE_TAG = -1` if no rule is associated with the state
-extern "C" CAMLprim value processRule(value rule_cases)
+/** @brief Enum for Ocaml Tags (see MyParsing.mli - flat_regex)
+ *  @note Ocaml types inside a recursive are tagged starting with 0 in order
+ *        of their declaration. This tag is exposed to c such that we can
+ *        determine the type's tag and operate with that assumption. 
+ */
+enum class OcamlReTags : size_t
 {
-    CAMLparam1(rule_cases);
-    
-    /// gather up rule cases, and format them into c++ structures
-    ///
-    CAMLlocal1(case_tuple);
-    std::vector<RuleCase> ruleCases;
-    while (rule_cases != Val_int(0))
+    FCHAR = 0, 
+    FSTRING,
+    FCHAR_RANGE,
+    FUNION,
+    FCAT,
+    FSTAR, 
+    SIZE // total number of ocaml tags in this enum 
+};
+
+
+/** @brief Function type alias for converting ocaml re symbol to cpp re symbol 
+ */
+using ConvertFunction_t = std::function<Regex::Flat::Symbol(value)>;
+
+
+/// -----------------------------------------------------------------------
+/// Non Ocaml Accessable Function Prototypes
+/// -----------------------------------------------------------------------
+
+
+Regex::Flat::Type MakeCppRe(value ocaml_re_pair);
+Regex::Flat::Char_t MakeChar(value ocaml_symbol);
+Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol, 
+        std::vector<std::string>& stringBuf);
+Regex::Flat::Charset_t MakeCharset(value ocaml_symbol);
+template <typename OP> OP MakeFlatOp([[maybe_unused]] value ocaml_symbol);
+
+
+/// ---------------------------------------------------------------------------
+/// Ocaml Accessable Functions 
+/// ---------------------------------------------------------------------------
+
+
+extern "C"
+{
+    /** @brief Function to make a lexer dfa from a set of inputted RE postorder
+     *         trees flattened as a list. 
+     * 
+     *  @param ocaml_re_list list of postorder RE passed from ocaml
+     *  @param ocaml_list_Len length of the re_list passed from ocaml
+     * 
+     *  @return ocaml tuple of: 
+     *          1. transition table ([state index][symbol] -> result index)
+     *          2. case tag table ([state index] -> state tag)
+     *          3. start state index
+     *          4. dead state index
+     *          5. size of dfa (num states)
+     */
+    CAMLprim value MakeDFA(value ocaml_re_list, value ocaml_list_len)
     {
-        case_tuple = Field(rule_cases, 0);
-        const char * const patternData = String_val(Field(case_tuple, 0));
-        RuleCase::Pattern_t patternType = \ 
-            static_cast<RuleCase::Pattern_t>(Int_val(Field(case_tuple, 1)));
-        const char * const matchAlias = String_val(Field(case_tuple, 2));
-        const char * const actionCode = String_val(Field(case_tuple, 3));
+        CAMLparam2(ocaml_re_list, ocaml_list_len);
+        CAMLlocal1(ocaml_re);
 
-        ruleCases.emplace_back(patternData, patternType, matchAlias, actionCode);
-        rule_cases = Field(rule_cases, 1);
-    }
-    const size_t NUM_CASES = ruleCases.size();
+        // allocate a vector to hold the res from ocaml
+        int lenList = Val_long(ocaml_list_len);
+        std::vector<Regex::Flat::Type> cppREs; 
+        cppREs.reserve(static_cast<size_t>(lenList));
 
-    /// use the rule cases the build an nfa, and then a dfa (unminimized : TODO)
-    ///
-    DFA lexDfa(NFABuilder::Build(ruleCases));
-
-    const size_t NUM_STATES = lexDfa.States().size();
-
-    /// debug : draw the dfa
-    /// 
-    DrawStateMachine(lexDfa, "output/dfa.dot");
-
-    /// convert the dfa's cpp transition table into an ocaml value and store the case tags
-    /// as a seperate array. Initialize the seperate array to NO_CASE_TAG values.
-    /// 
-    CAMLlocal3(transition_table, state_transitions, case_table);
-    transition_table = caml_alloc(NUM_STATES, 0);
-    case_table = caml_alloc(NUM_STATES, 0);
-    
-    for (size_t case_index = 0; case_index < NUM_CASES; ++case_index)
-    {
-        Store_field(case_table, case_index, Val_int((int) NO_CASE_TAG));
-    }
-
-    for (const DFA::State& state : lexDfa.States())
-    {
-        Store_field(case_table, state.index, Val_int(state.caseTag));
-        state_transitions = caml_alloc(CHAR_MAX - CHAR_MIN + 1, 0);
-        for (int symbol = CHAR_MIN; symbol <= CHAR_MAX; ++symbol)
+        // loop over the ocaml_re_list and convert the re to
+        // cpp versions of the res
+        while (ocaml_re_list != Val_int(0)) // while list != []
         {
-            size_t toState = (ALPHABET.contains((char)symbol) ? 
-                state.transitions.at((char)symbol) : lexDfa.Dead());
-            Store_field(state_transitions, (char)symbol , Val_int( (int) toState) );
+            ocaml_re = Field(ocaml_re_list, 0);
+            cppREs.emplace_back(MakeCppRe(ocaml_re));
+            ocaml_re_list = Field(ocaml_re_list, 1); // advance head
         }
-        Store_field(transition_table, (int) state.index, state_transitions);
     }
 
-    /// create and return tuple with start state, dead state, number of states, and 
-    /// transition table
-    ///
-    CAMLlocal1(ret);
-    ret = caml_alloc_tuple(5);
-    Store_field(ret, 0, Val_int(lexDfa.Start()));
-    Store_field(ret, 1, Val_int(lexDfa.Dead()));
-    Store_field(ret, 2, Val_int(NUM_STATES));
-    Store_field(ret, 3, transition_table);
-    Store_field(ret, 4, case_table);
-    CAMLreturn(ret);
 }
 
 
-/// @brief function to get the alphabet used in the lexer
-/// @return the alphabet as an ocaml array of chars
-extern "C" CAMLprim value getAlphabet()
+/// -----------------------------------------------------------------------
+/// Non Ocaml Accessable Function Definitions  
+/// -----------------------------------------------------------------------
+
+
+/** @brief Function to convert an ocaml regex to a cpp regex
+ * 
+ *  @param ocaml_re_pair ocaml tuple of a postorder re (as a list) and size
+ * 
+ *  @return Constructed cpp re
+ */
+Regex::Flat::Type MakeCppRe(value ocaml_re_pair)
 {
+    // ocaml var declares
     CAMLparam0();
-    CAMLlocal1(ret);
-    ret = caml_alloc(ALPHABET.size(), 0);
-    size_t symbol = 0;
-    for (char c : ALPHABET)
+    CAMLlocal2(ocaml_re, ocaml_re_sym);
+
+    // define the static conversion function map
+    static std::unordered_map<OcamlReTags, ConvertFunction_t> convMap = 
     {
-        Store_field(ret, symbol++, Val_long(c));
+        {OcamlReTags::FCHAR, MakeChar},
+        {OcamlReTags::FCHAR_RANGE, MakeCharset},
+        {OcamlReTags::FCAT, MakeFlatOp<Regex::Flat::Concat_t>},
+        {OcamlReTags::FUNION, MakeFlatOp<Regex::Flat::Union_t>},
+        {OcamlReTags::FSTAR, MakeFlatOp<Regex::Flat::KleeneStar_t>}  
+    };
+
+    ocaml_re = Field(ocaml_re_pair, 0);
+    int reSize = Int_val(Field(ocaml_re_pair, 1));
+
+    // create the cpp re instance 
+    Regex::Flat::Type cppRe; 
+    cppRe.reserve(static_cast<size_t>(reSize));
+
+    // create a buffer for strings in ocaml. Must do this because 
+    // std::string_view does not work with ocaml strings (cant deduce size)
+    std::vector<std::string> stringBuffer;
+    stringBuffer.reserve(static_cast<size_t>(reSize));
+
+    // now that we've created the string buffer for this function, add the
+    // string conversion function (which depends on the buffer)
+    convMap.emplace(
+        OcamlReTags::FSTRING, 
+        [&stringBuffer](value v){ return MakeLiteral(v, stringBuffer); }
+    );
+    
+    // process all symbols, converting them into cpp re symbols
+    while (ocaml_re != Int_val(0)) // while ocaml_re != []
+    {
+        // get the current symbol and deduce it's tag
+        ocaml_re_sym = Field(ocaml_re, 0);
+        OcamlReTags tag = static_cast<OcamlReTags>(Tag_val(ocaml_re_sym));
+        
+        // add the converted re sym to the cppRE
+        cppRe.emplace_back( convMap[tag](ocaml_re_sym) );
+
+        // advance the head
+        ocaml_re = Field(ocaml_re, 1);
     }
-    CAMLreturn(ret);
+    
+    // now cleanup. Important to remove the MakeLiteral function ptr we 
+    // added earlier, as the conv map is static. 
+    convMap.erase(OcamlReTags::FSTRING);
+
+    return cppRe;
+}
+
+
+/** @brief Function to make a cpp char type from an ocaml symbol.
+ * 
+ *  @param ocaml_symbol ocaml symbol
+ * 
+ *  @return Constructed cpp re char type 
+ */
+inline Regex::Flat::Char_t MakeChar(value ocaml_symbol)
+{
+    char c = static_cast<char>(Int_val(Field(ocaml_symbol, 0)));
+    return Regex::Flat::Char_t{ c };
+}
+
+
+/** @brief Function to make a cpp re literal (string) type from an ocaml symbol.
+ * 
+ *  @param ocaml_symbol ocaml symbol
+ *  @param stringBuf cpp memory buffer for strings. Warning: If a pushback 
+ *                   requires the buf vector to be resized, it will cause the 
+ *                   cpp re literal's view of the string to be invalid, causing 
+ *                   mem/seg fault. Allocate buffer vector properly.
+ *  
+ *  @return Constructed cpp re literal type
+ */
+inline Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol, 
+    std::vector<std::string>& stringBuf)
+{
+    const char * const pStr = String_val(Field(ocaml_symbol, 0));
+    stringBuf.emplace_back(pStr);
+    
+    return Regex::Flat::Literal_t{ std::string_view ( stringBuf.back() ) };
+}
+
+
+/** @brief Function to make a cpp re charset type from an ocaml symbol.
+ * 
+ *  @param ocaml_symbol ocaml symbol
+ *  
+ *  @return Constructed cpp re charset type
+ */
+inline Regex::Flat::Charset_t MakeCharset(value ocaml_symbol)
+{
+    char lo = static_cast<char>(Int_val(Field(ocaml_symbol, 0)));
+    char hi = static_cast<char>(Int_val(Field(ocaml_symbol, 1)));
+    bool inv = static_cast<bool>(Bool_val(Field(ocaml_symbol, 2)));
+
+    return Regex::Flat::Charset_t{ lo, hi, inv };
+}
+
+
+/** @brief Function to make a cpp <OP> type from an ocaml symbol.
+ * 
+ *  @tparam OP the operator type
+ * 
+ *  @param ocaml_symbol ocaml symbol, which is unused as flat operators are 
+ *                      empty and don't require space
+ *  
+ *  @return constructed re <op> type
+ */
+template <typename OP>
+OP MakeFlatOp([[maybe_unused]] value ocaml_symbol)
+{
+    return OP{ };
 }
