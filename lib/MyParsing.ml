@@ -65,19 +65,19 @@ module MyParsing = struct
     | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
     | CharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
 
-  let postorder (ast_root : regex) : flat_regex list = 
-    let rec aux todo result = 
+  let postorder (ast_root : regex) : flat_regex list * int = 
+    let rec aux todo result len = 
       match todo with
-      | [] -> result
-      | Char c :: todo -> aux todo ((FChar c)::result)
-      | String s :: todo -> aux todo ((FString s)::result)
-      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result)
-      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result)
-      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result)
-      | Star regex :: todo -> aux (regex::todo) (FStar::result)
+      | [] -> result, len
+      | Char c :: todo -> aux todo ((FChar c)::result) (len+1)
+      | String s :: todo -> aux todo ((FString s)::result) (len+1)
+      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result) (len+1)
+      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result) (len+1)
+      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result) (len+1)
+      | Star regex :: todo -> aux (regex::todo) (FStar::result) (len+1)
       | regex :: _ -> fmt_failwith "Regex %s should not be used in postoder" (string_of_regex regex)
     in
-    aux [ast_root] []
+    aux [ast_root] [] 0
     
   let parse (toks : Token.token list) = 
     let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in

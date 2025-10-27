@@ -27,6 +27,6 @@ module MyParsing :
       | FStar
     val string_of_regex : regex -> string
     val string_of_flat_regex : flat_regex -> string
-    val postorder : regex -> flat_regex list
+    val postorder : regex -> flat_regex list * int 
     val parse : Token.Token.token list -> lex_file
   end

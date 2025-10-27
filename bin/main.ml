@@ -92,7 +92,7 @@ let () =
     match cases with 
     | [] -> ()
     | x :: xs -> 
-      let flat = MyParsing.postorder x.regex in 
+      let flat, _ = MyParsing.postorder x.regex in 
       Printf.printf "Regex: %s\n  -> " (MyParsing.string_of_regex x.regex); 
       let strli = List.map MyParsing.string_of_flat_regex flat in
       List.iter print_string strli;
