@@ -36,13 +36,14 @@ struct __lexgen_lexbuf
     std::string_view text;
     size_t lexemeStart=0;
     size_t lexemeEnd=0;
-
-    std::string_view lexeme() const { return text.substr(lexemeStart, lexemeEnd-lexemeStart); }
-    bool isEof() const { return lexemeStart >= text.size(); }
-    bool isEmpty() const { return lexemeEnd >= text.size(); }
+    size_t pos=0;
+  
+    std::string_view lexeme() const { return text.substr(lexemeStart, lexemeEnd-lexemeStart+1); }
+    bool isEof() const { return pos >= text.size(); }
+    bool isEmpty() const { return pos >= text.size(); }
     char lexemeChar(size_t n) const { return lexeme().at(n); }
-    char nextChar() const { return text.at(lexemeEnd); }
-    void refill() { lexemeStart = lexemeEnd; }
+    char nextChar() const { return text.at(pos); }
+    void refill() { lexemeStart = pos = lexemeEnd; }
 };
 /// 
 
@@ -76,8 +77,9 @@ inline size_t __traverse(__lexgen_lexbuf & lexbuf) {
     {
         state = __lexgen_ttable[state][lexbuf.nextChar()];
         if (state == %d) break;
-        ++lexbuf.lexemeEnd; 
         tag = (__lexgen_ctable[state] == NO_TAG ? tag : __lexgen_ctable[state]);
+        lexbuf.lexemeEnd = (tag == NO_TAG ? lexbuf.lexemeEnd : lexbuf.pos);
+        ++lexbuf.pos; 
     }
     return tag;
 }
