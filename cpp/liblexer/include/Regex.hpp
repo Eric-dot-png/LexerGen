@@ -7,6 +7,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+#include <ostream>
 
 namespace Regex
 {
@@ -18,8 +19,10 @@ namespace Regex
         POST = 2 /// post-order (fastest)
     };
 
-    /// @brief NS for Flattened regex types. These types are not recursive (non-ast), and are meant for postorder traversal
-    namespace Flat
+    /** @brief NS for Flattened regex types. These types are not recursive 
+     *         (non-ast), and are meant for postorder traversal
+     */
+     namespace Flat
     {
         /// 
         /// Terminal FlatRegex Types
@@ -40,12 +43,24 @@ namespace Regex
         ///
         /// Flat Regex symbol type 
         ///
-        using Symbol = std::variant<Char_t,Literal_t,Charset_t,Union_t,Concat_t,KleeneStar_t>;
+        using Symbol = std::variant<Char_t,Literal_t,Charset_t,Union_t,
+            Concat_t,KleeneStar_t>;
 
         ///
         /// Flat regex expression type
         ///
         using Type = std::vector<Symbol>;
     };
-
 };
+
+
+/** @brief Stream operator to write the string representation of a flat re 
+ *         symbol to an ostream inheritant.  
+ *  @return ostream&
+ */
+std::ostream& operator<<(std::ostream&, const Regex::Flat::Symbol&);
+
+/** @brief Stream operato to write the string representation of a flat re
+ *         type to an ostream inheritant.
+ */
+std::ostream& operator<<(std::ostream&, const Regex::Flat::Type&);

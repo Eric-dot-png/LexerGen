@@ -1,6 +1,5 @@
 /// @file stubs.cpp
 /// @brief entry point for ocaml interface
-/// @brief in this file, cpp vars are written in caml case, and ocaml vals are in snake case
 
 #include "liblexer/include/NFABuilder.hpp"
 #include "liblexer/include/DFA.hpp"
@@ -18,9 +17,9 @@
 #include <vector>
 #include <iostream>
 
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 /// Interface Constants 
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 
 
 /** @brief Enum for Ocaml Tags (see MyParsing.mli - flat_regex)
@@ -46,9 +45,9 @@ enum class OcamlReTags : size_t
 using ConvertFunction_t = std::function<Regex::Flat::Symbol(value)>;
 
 
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 /// Non Ocaml Accessable Function Prototypes
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 
 OcamlReTags DeduceTag(value ocaml_re_sym);
 
@@ -110,9 +109,35 @@ extern "C"
             ocaml_re_list = Field(ocaml_re_list, 1); // advance head
         }
 
+        for (const Regex::Flat::Type& re : cppREs)
+        {
+            std::cout << re << std::endl;
+        }
+
         // use the library to build the dfa
         const DFA m( NFABuilder::Build<Regex::ItOrder::POST>(cppREs) );
         const size_t NUM_STATES = m.States().size();
+
+        std::cout << "Start: " << m.Start() << '\n'
+            << "Dead: " << m.Dead() << std::endl
+            << "ttable: " << std::endl;
+
+        for (const DFA::State& state : m.States())
+        {
+            std::cout << state.index << " : ";
+            std::cout << m.Dead() << ", ";
+            for (char sym : ALPHABET)
+            {
+                std::cout << state.transitions.at(sym) << ", ";
+            }
+            std::cout << m.Dead() << std::endl;
+        }
+
+        std::cout << "ctable: " << std::endl;
+        for (const DFA::State& state : m.States())
+        {
+            std::cout << state.index << " : " << state.caseTag << std::endl;
+        }
 
         // now convert the dfa to ocaml-friendly types
         CAMLlocal3(ocaml_ttable, ocaml_state_ttable, ocaml_ctable);
@@ -133,19 +158,20 @@ extern "C"
             ocaml_state_ttable = caml_alloc(ALPHABET_SIZE+2, 0);
             
             // include symbols not included in alphabet, but in ascii 
-            Store_field(ocaml_state_ttable, '\0', m.Dead());
-            Store_field(ocaml_state_ttable, char(127), m.Dead());
+            Store_field(ocaml_state_ttable, 0, Val_int(m.Dead()));
             
             // iterate over the alphabet and get the state's result transition
             // over the symbol
             for (char sym : ALPHABET)
             {
                 Store_field(ocaml_state_ttable, int(sym), 
-                    state.transitions.at(sym)); 
+                    Val_int(state.transitions.at(sym))); 
             }
             // store the individual state's ttable in the master ttable 
             Store_field(ocaml_ttable, int(state.index), ocaml_state_ttable);
             
+            Store_field(ocaml_state_ttable, 127, Val_int(m.Dead()));
+
             // update the case table with the state and the state's tag
             Store_field(ocaml_ctable, state.index, Val_int(state.caseTag));
         }
@@ -164,9 +190,9 @@ extern "C"
 }
 
 
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 /// Non Ocaml Accessable Function Definitions  
-/// -----------------------------------------------------------------------
+/// ---------------------------------------------------------------------------
 
 
 /** @brief Function to convert an ocaml regex to a cpp regex

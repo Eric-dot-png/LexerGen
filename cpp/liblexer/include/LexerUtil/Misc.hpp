@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "LexerUtil/Constants.hpp"
+
 #include <queue>
 #include <stack>
 #include <string>
@@ -24,7 +26,7 @@ SM_t pop(std::queue<SM_t>& queue)
     return val;
 }
 
-inline std::string Escaped(char symbol)
+inline std::string EscapedDot(char symbol)
 {
     switch ( symbol )
     {
@@ -35,6 +37,19 @@ inline std::string Escaped(char symbol)
         case '\'': return "\\'";
         case '\\': return "\\\\";
         case '\t': return "\\t";
+        case EPSILON: return "ε";
+        default: return std::string(1, symbol);
+    }
+}
+
+inline std::string Escaped(char symbol)
+{
+        switch ( symbol )
+    {
+        case '\n' : return "\\n";
+        case '\\': return "\\\\";
+        case '\t': return "\\t";
+        case '\r': return "\\r";
         case EPSILON: return "ε";
         default: return std::string(1, symbol);
     }
