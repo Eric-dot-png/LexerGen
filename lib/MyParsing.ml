@@ -98,7 +98,7 @@ module MyParsing = struct
       let _ = 
         match case.regex with 
         | Emptyset -> lex_file := {!lex_file with rule={!lex_file.rule with none_code=case.code}}
-        | Eof -> lex_file := {!lex_file with rule={!lex_file.rule with none_code=case.code}}
+        | Eof -> lex_file := {!lex_file with rule={!lex_file.rule with eof_code=case.code}}
         | _ -> case_list := (case :: !case_list) 
       in
       match toks with 
