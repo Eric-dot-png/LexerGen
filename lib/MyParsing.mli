@@ -13,17 +13,17 @@ module MyParsing :
         Emptyset
       | Eof
       | Char of char
-      | String of string
+      | Literal of string
       | Union of regex * regex
-      | Cat of regex * regex
+      | Concat of regex * regex
       | Star of regex
-      | CharRange of char * char
+      | Charset of char * char
     type flat_regex =
         FChar of char
-      | FString of string
-      | FCharRange of char * char
+      | FLiteral of string
+      | FCharset of char * char
       | FUnion
-      | FCat
+      | FConcat
       | FStar
     val string_of_regex : regex -> string
     val string_of_flat_regex : flat_regex -> string

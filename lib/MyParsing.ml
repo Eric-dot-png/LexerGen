@@ -31,27 +31,27 @@ module MyParsing = struct
   | Emptyset 
   | Eof 
   | Char of char
-  | String of string
+  | Literal of string
   | Union of regex * regex
-  | Cat of regex * regex
+  | Concat of regex * regex
   | Star of regex 
-  | CharRange of char * char
+  | Charset of char * char
 
   type flat_regex = 
   | FChar of char
-  | FString of string
-  | FCharRange of char * char 
+  | FLiteral of string
+  | FCharset of char * char 
   | FUnion
-  | FCat
+  | FConcat
   | FStar
 
   let string_of_flat_regex (fr : flat_regex) =
     match fr with
     | FChar c -> Printf.sprintf "'%s'" (MyUtil.descape c)
-    | FString s ->  Printf.sprintf "\"%s\"" s
-    | FCharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
+    | FLiteral s ->  Printf.sprintf "\"%s\"" s
+    | FCharset (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
     | FUnion -> "|" 
-    | FCat -> "·" 
+    | FConcat -> "·" 
     | FStar -> "*"
 
   let rec string_of_regex (r : regex) = 
@@ -59,11 +59,11 @@ module MyParsing = struct
     | Emptyset -> "∅"
     | Eof -> "$"
     | Char c -> Printf.sprintf "'%s'" (MyUtil.descape c)
-    | String s -> Printf.sprintf "\"%s\"" s
+    | Literal s -> Printf.sprintf "\"%s\"" s
     | Union (r1,r2) -> Printf.sprintf "(%s | %s)" (string_of_regex r1) (string_of_regex r2)
-    | Cat (r1,r2) -> Printf.sprintf "(%s · %s)" (string_of_regex r1) (string_of_regex r2)
+    | Concat (r1,r2) -> Printf.sprintf "(%s · %s)" (string_of_regex r1) (string_of_regex r2)
     | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
-    | CharRange (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
+    | Charset (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
 
   (** [postorder ast_root] returns the postorder flat_re typed list of [ast_root] along with
       the length of this list, and the number of string types in this list.
@@ -74,10 +74,10 @@ module MyParsing = struct
       match todo with
       | [] -> result, len, numStr
       | Char c :: todo -> aux todo ((FChar c)::result) (len+1) numStr
-      | String s :: todo -> aux todo ((FString s)::result) (len+1) (numStr)
-      | CharRange (lo,hi) :: todo -> aux todo (FCharRange (lo,hi)::result) (len+1) numStr
+      | Literal s :: todo -> aux todo ((FLiteral s)::result) (len+1) (numStr)
+      | Charset (lo,hi) :: todo -> aux todo (FCharset (lo,hi)::result) (len+1) numStr
       | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result) (len+1) numStr
-      | Cat (left,right) :: todo -> aux (right::left::todo) (FCat::result) (len+1) numStr
+      | Concat (left,right) :: todo -> aux (right::left::todo) (FConcat::result) (len+1) numStr
       | Star regex :: todo -> aux (regex::todo) (FStar::result) (len+1) numStr
       | regex :: _ -> fmt_failwith "Regex %s should not be used in postoder" (string_of_regex regex)
     in
@@ -131,7 +131,7 @@ module MyParsing = struct
       match toks with
       | ( (Token.BAR | STRING _ | REGEX _ | CHAR _ | STAR | LPAREN | RPAREN | LBRACKET | DASH | RBRACKET ) :: _ as rest ) ->
         let right, rest = parse_cat rest in
-        Cat (left,right), rest
+        Concat (left,right), rest
       | _ -> left, toks 
     and parse_repeat (toks : Token.token list) = 
       let atom, toks = parse_atomic toks in
@@ -142,7 +142,7 @@ module MyParsing = struct
       match toks with 
       | Token.NONE_PATT :: rest -> Emptyset, rest
       | Token.EOF_PATT :: rest -> Eof, rest
-      | Token.STRING(str) :: rest -> String str, rest
+      | Token.STRING(str) :: rest -> Literal str, rest
       | Token.CHAR(c) :: rest -> Char c, rest
       | Token.LBRACKET :: toks -> 
       (
@@ -163,7 +163,7 @@ module MyParsing = struct
     and parse_range_item (toks : Token.token list) = 
       match toks with
       | Token.CHAR(left) :: Token.DASH :: Token.CHAR(right) :: rest -> 
-        CharRange (left,right), rest 
+        Charset (left,right), rest 
       | Token.CHAR(c) :: rest -> Char c, rest 
       | tok :: _ -> fmt_failwith "Expected character token, not %s" (Token.string_of_token tok)
       | [] -> failwith "Range must not be empty"
