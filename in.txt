@@ -2,7 +2,7 @@
 #include <iostream>
 }
 
-rule lexer : void = parse 
+rule tokenize : void = parse 
 | "my name is " ['a'-'z' 'A'-'Z']* as name 
 {
     std::cout << "Hello, " << name << "how are you?" << std::endl;
@@ -11,7 +11,7 @@ rule lexer : void = parse
 { 
     std::cout << "ID : " << id << std::endl;
 }
-| [' ' '\n' '\t' ] 
+| [' ' '\n' '\t' '\r' ][' ' '\n' '\t' '\r']*
 {
     std::cout << "SPACE" << std::endl;
 }
@@ -29,8 +29,10 @@ int main()
 {
     std::string idSample = "identifierName_isThis321_ id2";
     __lexgen_lexbuf buf{idSample};
-    lexer(buf);
-    lexer(buf);
+    while (!buf.isEof())
+    {
+        tokenize(buf);
+    }
     return 0;
 }
 }

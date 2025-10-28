@@ -5,6 +5,7 @@
 #include "liblexer/include/DFA.hpp"
 #include "liblexer/include/Regex.hpp"
 #include "liblexer/include/LexerUtil/Constants.hpp"
+#include "liblexer/include/LexerUtil/Drawing.hpp"
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -115,8 +116,12 @@ extern "C"
         }
 
         // use the library to build the dfa
-        const DFA m( NFABuilder::Build<Regex::ItOrder::POST>(cppREs) );
+        const NFA n(NFABuilder::Build<Regex::ItOrder::POST>(cppREs));
+        const DFA m( n );
         const size_t NUM_STATES = m.States().size();
+
+        DrawStateMachine(n, "output/nfa.dot");
+        DrawStateMachine(m, "output/dfa.dot");
 
         std::cout << "Start: " << m.Start() << '\n'
             << "Dead: " << m.Dead() << std::endl
@@ -296,9 +301,9 @@ inline Regex::Flat::Charset_t MakeCharset(value ocaml_symbol)
 {
     char lo = static_cast<char>(Int_val(Field(ocaml_symbol, 0)));
     char hi = static_cast<char>(Int_val(Field(ocaml_symbol, 1)));
-    bool inv = static_cast<bool>(Bool_val(Field(ocaml_symbol, 2)));
+    // todo : bool inv = static_cast<bool>(Bool_val(Field(ocaml_symbol, 2)));
 
-    return Regex::Flat::Charset_t{ lo, hi, inv };
+    return Regex::Flat::Charset_t{ lo, hi, false };
 }
 
 
