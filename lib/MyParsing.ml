@@ -7,6 +7,7 @@
 module MyParsing = struct
   open Token
   open MyUtil
+  open Regex
 
   let fmt_failwith = MyUtil.fmt_failwith
 
@@ -25,63 +26,8 @@ module MyParsing = struct
   and case = {
     alias : string;
     code : string;
-    regex : regex;
+    regex : Regex.ast
   }
-  and regex = 
-  | Emptyset 
-  | Eof 
-  | Char of char
-  | Literal of string
-  | Union of regex * regex
-  | Concat of regex * regex
-  | Star of regex 
-  | Charset of char * char
-
-  type flat_regex = 
-  | FChar of char
-  | FLiteral of string
-  | FCharset of char * char 
-  | FUnion
-  | FConcat
-  | FStar
-
-  let string_of_flat_regex (fr : flat_regex) =
-    match fr with
-    | FChar c -> Printf.sprintf "'%s'" (MyUtil.descape c)
-    | FLiteral s ->  Printf.sprintf "\"%s\"" s
-    | FCharset (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
-    | FUnion -> "|" 
-    | FConcat -> "·" 
-    | FStar -> "*"
-
-  let rec string_of_regex (r : regex) = 
-    match r with
-    | Emptyset -> "∅"
-    | Eof -> "$"
-    | Char c -> Printf.sprintf "'%s'" (MyUtil.descape c)
-    | Literal s -> Printf.sprintf "\"%s\"" s
-    | Union (r1,r2) -> Printf.sprintf "(%s | %s)" (string_of_regex r1) (string_of_regex r2)
-    | Concat (r1,r2) -> Printf.sprintf "(%s · %s)" (string_of_regex r1) (string_of_regex r2)
-    | Star r -> Printf.sprintf "(%s *)" (string_of_regex r)
-    | Charset (c1,c2) -> Printf.sprintf "['%s'-'%s']" (MyUtil.descape c1) (MyUtil.descape c2)
-
-  (** [postorder ast_root] returns the postorder flat_re typed list of [ast_root] along with
-      the length of this list, and the number of string types in this list.
-      @param ast_root the root of the regex ast 
-      @return postorder list, size, nStrings *)
-  let postorder (ast_root : regex) : flat_regex list * int * int = 
-    let rec aux todo result len numStr = 
-      match todo with
-      | [] -> result, len, numStr
-      | Char c :: todo -> aux todo ((FChar c)::result) (len+1) numStr
-      | Literal s :: todo -> aux todo ((FLiteral s)::result) (len+1) (numStr)
-      | Charset (lo,hi) :: todo -> aux todo (FCharset (lo,hi)::result) (len+1) numStr
-      | Union (left, right) :: todo -> aux (right::left::todo) (FUnion::result) (len+1) numStr
-      | Concat (left,right) :: todo -> aux (right::left::todo) (FConcat::result) (len+1) numStr
-      | Star regex :: todo -> aux (regex::todo) (FStar::result) (len+1) numStr
-      | regex :: _ -> fmt_failwith "Regex %s should not be used in postoder" (string_of_regex regex)
-    in
-    aux [ast_root] [] 0 0
     
   let parse (toks : Token.token list) = 
     let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in

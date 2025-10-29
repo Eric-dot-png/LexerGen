@@ -13,12 +13,13 @@ open MyLexing
 open MyParsing
 open CodeGen
 open CppTemplate
+open Regex
 
 (*----------------------------------------------------------------------------*)
 (* External Function loading                                                  *)
 (*----------------------------------------------------------------------------*)
 
-external _make_dfa : (MyParsing.flat_regex list * int) list -> int -> int ->
+external make_dfa : (Regex.flat_postorder * int) list -> int -> int ->
   (int array array) * int array * int * int * int = "MakeDFA"
 
 (*----------------------------------------------------------------------------*)
@@ -62,16 +63,18 @@ let () =
     match cases with 
     | [] -> ()
     | x :: xs -> 
-      let flat, _, _ = MyParsing.postorder x.regex in 
-      Printf.printf "Regex: %s\n  -> " (MyParsing.string_of_regex x.regex); 
-      let strli = List.map MyParsing.string_of_flat_regex flat in
+      let flat, _, _ = Regex.flat_postorder_of_ast x.regex in 
+      Printf.printf "Regex: %s\n  -> " (Regex.string_of_ast x.regex); 
+      let strli = List.map Regex.string_of_flat flat in
       List.iter print_string strli;
       print_endline "";
       aux xs;
   in
   aux cases;
   let postorder_tuples = 
-    List.map (fun (case : MyParsing.case) -> MyParsing.postorder case.regex) cases 
+    List.map (fun (case : MyParsing.case) -> 
+      Regex.flat_postorder_of_ast case.regex) 
+    cases 
   in
   let num_tuples = List.length postorder_tuples in
   let number_strings = 
@@ -80,7 +83,7 @@ let () =
   let postorder_tuples = 
     List.map (fun (re,len_re,_) -> (re,len_re)) postorder_tuples
   in
-  let ttable, ctable, start, dead, size = _make_dfa postorder_tuples num_tuples number_strings in
+  let ttable, ctable, start, dead, size = make_dfa postorder_tuples num_tuples number_strings in
   Printf.printf "Start State: %d\n" start;
   Printf.printf "Dead State: %d\n" dead;
   Printf.printf "Number of States: %d\n" size;
