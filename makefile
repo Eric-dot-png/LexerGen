@@ -9,6 +9,9 @@ DEBUG ?= true
 run: $(OUT_DIR)
 	@dune exec -- ./bin/main.exe -i $(IFILE) -o $(OFILE) $(if $(filter true,$(DEBUG)),-d)
 
+exe:
+	@cp _build/default/bin/main.exe ./lexgen
+
 log: $(OUT_DIR)
 	@dune exec -- ./bin/main.exe -i $(IFILE) -o $(OFILE) $(if $(filter true,$(DEBUG)),-d) > $(OUT_DIR)/out.log
 

@@ -110,39 +110,13 @@ extern "C"
             ocaml_re_list = Field(ocaml_re_list, 1); // advance head
         }
 
-        for (const Regex::Flat::Type& re : cppREs)
-        {
-            std::cout << re << std::endl;
-        }
-
         // use the library to build the dfa
         const NFA n(NFABuilder::Build<Regex::ItOrder::POST>(cppREs));
         const DFA m( n );
         const size_t NUM_STATES = m.States().size();
 
-        DrawStateMachine(n, "output/nfa.dot");
-        DrawStateMachine(m, "output/dfa.dot");
-
-        std::cout << "Start: " << m.Start() << '\n'
-            << "Dead: " << m.Dead() << std::endl
-            << "ttable: " << std::endl;
-
-        for (const DFA::State& state : m.States())
-        {
-            std::cout << state.index << " : ";
-            std::cout << m.Dead() << ", ";
-            for (char sym : ALPHABET)
-            {
-                std::cout << state.transitions.at(sym) << ", ";
-            }
-            std::cout << m.Dead() << std::endl;
-        }
-
-        std::cout << "ctable: " << std::endl;
-        for (const DFA::State& state : m.States())
-        {
-            std::cout << state.index << " : " << state.caseTag << std::endl;
-        }
+        //DrawStateMachine(n, "output/nfa.dot");
+        //DrawStateMachine(m, "output/dfa.dot");
 
         // now convert the dfa to ocaml-friendly types
         CAMLlocal3(ocaml_ttable, ocaml_state_ttable, ocaml_ctable);

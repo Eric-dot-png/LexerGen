@@ -59,18 +59,9 @@ let () =
   (*List.iter (fun tok -> print_endline (Token.string_of_token tok)) toks;*)
   let lex_file = MyParsing.parse toks in 
   let cases = lex_file.rule.cases in 
-  let rec aux (cases : MyParsing.case list)= 
-    match cases with 
-    | [] -> ()
-    | x :: xs -> 
-      let flat, _, _ = Regex.flat_postorder_of_ast x.regex in 
-      Printf.printf "Regex: %s\n  -> " (Regex.string_of_ast x.regex); 
-      let strli = List.map Regex.string_of_flat flat in
-      List.iter print_string strli;
-      print_endline "";
-      aux xs;
-  in
-  aux cases;
+  List.iter (fun ( case : MyParsing.case ) -> 
+      Printf.printf "Parsed Regex: %s\n" (Regex.string_of_ast case.regex)
+  ) cases;
   let postorder_tuples = 
     List.map (fun (case : MyParsing.case) -> 
       Regex.flat_postorder_of_ast case.regex) 
