@@ -103,6 +103,7 @@ module MyLexing = struct
         | "parse" -> Token.PARSE
         | "as" -> Token.AS
         | "eof" -> Token.EOF_PATT
+        | "let" -> Token.LET
         | _ -> Token.ID(matched)
       )
      | Some c -> fmt_failwith "Unexpected character '%c'" c

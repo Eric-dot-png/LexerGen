@@ -2,16 +2,22 @@
 #include <iostream>
 }
 
+let upper    = ['A'-'Z']
+let lower    = ['a'-'z']
+let digit    = ['0'-'9']
+let space    = [' ' '\n' '\t' '\r']
+let alphanum = upper|lower|digit
+
 rule tokenize : void = parse 
-| "my name is " ['a'-'z' 'A'-'Z']* as name 
+| "my name is " (upper | lower) as name 
 {
     std::cout << "Hello, " << name << "how are you?" << std::endl;
 }
-| ['a'-'z' 'A'-'Z'] ['0'-'9' 'a'-'z' 'A'-'Z' '_']* as id 
+| (lower|upper|'_') (alphanum|'_')* as id 
 { 
     std::cout << "ID : " << id << std::endl;
 }
-| [' ' '\n' '\t' '\r' ][' ' '\n' '\t' '\r']*
+| space space*
 {
     std::cout << "SPACE" << std::endl;
 }

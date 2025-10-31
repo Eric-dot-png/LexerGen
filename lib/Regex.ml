@@ -20,6 +20,13 @@ module Regex = struct
   | Concat of ast * ast
   | Star of ast 
   | Charset of char * char
+  (* 
+  Charset of (char * char) list * bool 
+
+  ['a'-'z' '0'] -> charset of [('a','z'), ('0', '0') ]
+  
+  *)
+
 
   (** [string_of_ast r] returns the string representation of the in-order
       regular expression ast [r]

@@ -8,7 +8,7 @@ module MyParsing = struct
   open Token
   open MyUtil
   open Regex
-
+  
   let fmt_failwith = MyUtil.fmt_failwith
 
   type lex_file = {
@@ -32,26 +32,42 @@ module MyParsing = struct
   let parse (toks : Token.token list) = 
     let lex_file = ref {header="";trailer="";rule={name="";return_type="";none_code="";eof_code="";cases=[]}} in
     let case_list = ref [] in
-    let rec parse_rule toks = 
+    let symtable = Hashtbl.create 10 in
+    
+    (* [parse_assignments toks] parses the assignments before the rule 
+        declare. Assignments must be of the form <id> = <regex>
+        @param toks token list to parse
+        @return remaining toks after parse *)
+    let rec parse_assignments toks = 
+      match toks with 
+      | Token.LET :: Token.ID(id) :: Token.EQUALS :: toks ->
+        let re, rest = parse_regex toks in
+        Hashtbl.add symtable id re;
+        parse_assignments rest
+      | _ -> toks
+
+    (* [parse_rule toks] parses the rule itself. Modifies lex file obj
+        via ref inline.
+        @param toks token list to parse
+        @return remaining toks after parse *)
+    and parse_rule toks = 
       match toks with 
       | Token.RULE :: Token.ID(name) :: Token.COLON :: Token.ID(return_type) :: Token.EQUALS :: Token.PARSE :: rest -> 
         let new_rule = {!lex_file.rule with name = name; return_type = return_type;} in 
-        let _ = lex_file := { !lex_file with rule = new_rule } in
+        lex_file := { !lex_file with rule = new_rule };
         parse_cases rest 
       | _ -> failwith "rule declarations must be in the form rule <id> : <return> = parse"
     and parse_cases (toks : Token.token list) =
       let case, toks = parse_case toks in 
-      let _ = 
+      (
         match case.regex with 
         | Emptyset -> lex_file := {!lex_file with rule={!lex_file.rule with none_code=case.code}}
         | Eof -> lex_file := {!lex_file with rule={!lex_file.rule with eof_code=case.code}}
         | _ -> case_list := (case :: !case_list) 
-      in
+      );
       match toks with 
       | ( Token.BAR :: _  as rest ) -> parse_cases rest 
-      | Token.CODE(trailer) :: Token.EOF :: [] -> lex_file := {!lex_file with trailer =trailer;}
-      | Token.CODE(_) :: tok :: _ | tok :: _ -> fmt_failwith "Unexpected token : %s" (Token.string_of_token tok)
-      | [] -> () (* there is no trailer code *)
+      | _ -> toks 
     and parse_case (toks : Token.token list) =
       let mustbar, toks = MyUtil.head toks in 
       if (match mustbar with Token.BAR -> false | _ -> true) then 
@@ -62,7 +78,7 @@ module MyParsing = struct
         match toks with
         | Token.AS :: Token.ID(id) :: Token.CODE(code) :: rest -> {case with alias=id;code=code;}, rest
         | Token.CODE(code) :: rest -> {case with code=code;}, rest
-        | tok :: _ -> fmt_failwith "Unexpected token : %s" (Token.string_of_token tok)
+        | tok :: _ -> fmt_failwith "parse_case : Unexpected token : %s" (Token.string_of_token tok)
         | [] -> fmt_failwith "Expected atleast 1 case in rule \"%s\"" !lex_file.rule.name
     and parse_regex (toks : Token.token list) = parse_union toks
     and parse_union (toks : Token.token list) =
@@ -75,8 +91,8 @@ module MyParsing = struct
     and parse_cat (toks : Token.token list) = 
       let left, toks = parse_repeat toks in
       match toks with
-      | ( (Token.BAR | STRING _ | REGEX _ | CHAR _ | STAR | LPAREN | RPAREN | LBRACKET | DASH | RBRACKET ) :: _ as rest ) ->
-        let right, rest = parse_cat rest in
+      | ( (Token.STRING _ | CHAR _ | STAR | LPAREN | LBRACKET | ID _ ) :: _ as rest ) ->
+        let right, rest = parse_repeat rest in
         Concat (left,right), rest
       | _ -> left, toks 
     and parse_repeat (toks : Token.token list) = 
@@ -90,12 +106,25 @@ module MyParsing = struct
       | Token.EOF_PATT :: rest -> Eof, rest
       | Token.STRING(str) :: rest -> Literal str, rest
       | Token.CHAR(c) :: rest -> Char c, rest
+      | Token.ID(id) :: rest ->
+      (
+        match Hashtbl.find_opt symtable id with 
+        | Some re -> re,rest
+        | None -> MyUtil.fmt_failwith "Undeclared identifier \"%s\"" id
+      )
       | Token.LBRACKET :: toks -> 
       (
         let items, rest = parse_range_items toks in
         match rest with 
         | Token.RBRACKET :: rest -> items, rest
         | _ -> failwith "Unmatched '['"
+      )
+      | Token.LPAREN :: toks ->
+      (
+        let re, rest = parse_regex toks in
+        match rest with 
+        | Token.RPAREN :: rest -> re, rest
+        | _ -> failwith "Unmatched '('"
       )
       | tok :: _ -> fmt_failwith "Unexpected token : %s, expected atomic." (Token.string_of_token tok)
       | _ -> failwith "Missing atomic"
@@ -114,11 +143,40 @@ module MyParsing = struct
       | tok :: _ -> fmt_failwith "Expected character token, not %s" (Token.string_of_token tok)
       | [] -> failwith "Range must not be empty"
     in 
-    let _ = 
+    (* possibly extract header code *)
+    let toks = 
       match toks with
-      | Token.CODE(header) :: toks -> let _ = lex_file := {!lex_file with header=header} in parse_rule toks
-      | toks -> parse_rule toks 
+      | Token.CODE(header) :: rest -> lex_file := {!lex_file with header=header}; rest
+      | _ -> toks 
     in 
+    (* parse the assignments and rule *)
+    let toks = parse_assignments toks in 
+    let toks = parse_rule toks in
+    
+    (* possibly extract the trailer code, and enforce no extra symbols *)
+    (
+      match toks with 
+      | Token.CODE(trailer) :: rest ->
+      ( 
+        lex_file := {!lex_file with trailer=trailer};
+        match rest with 
+        | Token.EOF :: [] -> ()
+        | tok :: _ -> fmt_failwith "Unexpected symbol after trailer : %s" 
+          (Token.string_of_token tok)
+        | [] -> failwith "expected eof, got []"
+      )
+      | Token.EOF :: rest -> 
+      (
+        match rest with
+        | [] -> ()
+        | tok :: _ -> fmt_failwith "Unexpected symbol after rule block : %s" 
+          (Token.string_of_token tok)
+      )
+      | tok :: _ -> fmt_failwith "Expected trailer or eof, not %s" (Token.string_of_token tok)
+      | [] -> failwith "expected eof, got []"
+    )
+    ;
+
     let new_rule = {!lex_file.rule with cases = List.rev !case_list} in 
     {!lex_file with rule=new_rule} 
 
