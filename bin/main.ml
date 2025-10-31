@@ -55,7 +55,7 @@ let () =
   Printf.printf "Output Filename: %s\n" output_filename;
   Printf.printf "Debug: %b\n" debug_msgs;
   let file_contents = MyUtil.read_file input_filename in
-  let toks = MyLexing.tokenize file_contents 0 in
+  let toks = MyLexing.tokenize file_contents in
   (*List.iter (fun tok -> print_endline (Token.string_of_token tok)) toks;*)
   let lex_file = MyParsing.parse toks in 
   let cases = lex_file.rule.cases in 

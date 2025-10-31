@@ -18,10 +18,10 @@ module MyLexing = struct
 
   let fmt_failwith = MyUtil.fmt_failwith
 
-  let tokenize (str : string) (start : int)= 
+  let tokenize (str : string) = 
     let len = String.length str in
-    let pos = ref start in 
-  
+    let pos = ref 0 in 
+
     let next() = if !pos < len then Some str.[!pos] else None in 
     let peek() = if (!pos + 1) < len then Some str.[!pos+1] else None in
     
