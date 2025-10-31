@@ -99,6 +99,7 @@ module MyParsing = struct
       let atom, toks = parse_atomic toks in
       match toks with 
       | Token.STAR :: rest -> Star atom, rest
+      | Token.PLUS :: rest -> Concat (atom , (Star atom)), rest
       | _ -> atom, toks
     and parse_atomic (toks : Token.token list) = 
       match toks with 

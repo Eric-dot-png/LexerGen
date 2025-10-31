@@ -41,6 +41,7 @@ module Token = struct
     | DASH
     | RBRACKET
     | LET
+    | PLUS
 
   (* ------------------------------------------------------------------ *)
   (* Pretty printing                                                       *)
@@ -70,6 +71,7 @@ module Token = struct
     | DASH -> "DASH"
     | RBRACKET -> "RBRACKET"
     | LET -> "LET"
+    | PLUS -> "PLUS"
 
     (** [hash tok] is the hash function to hash tokens.
         @param tok token that must be an identifier token
@@ -80,25 +82,3 @@ module Token = struct
       | _ -> MyUtil.fmt_failwith "hash only hashes ids, not \"%s\"" 
           (string_of_token tok)
 end
-
-(*
-module IdKey = struct
-  open MyUtil
-  open Token
-
-  type t = Token.token
-  let equal (tok1 : t) (tok2 : t) = 
-    match tok1, tok2 with
-    | ID(id1), ID(id2) -> id1 = id2
-    | _ -> MyUtil.fmt_failwith "TokenKey.equal : Unexpected tokens : %s" 
-      ((Token.string_of_token tok1)^", "^(Token.string_of_token tok2))
-
-  let hash tok = 
-    match tok with 
-    | ID(id) -> Hashtbl.hash(id)
-    | _ -> MyUtil.fmt_failwith "TokenKey.hash : Unexpected token : %s" 
-      (Token.string_of_token tok)
-end
-
-module SymTable = Hashtbl.Make(IdKey)
-*)

@@ -17,7 +17,7 @@ rule tokenize : void = parse
 { 
     std::cout << "ID : " << id << std::endl;
 }
-| space space*
+| space+
 {
     std::cout << "SPACE" << std::endl;
 }
