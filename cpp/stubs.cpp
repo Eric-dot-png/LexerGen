@@ -271,13 +271,28 @@ inline Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol,
  *  
  *  @return Constructed cpp re charset type
  */
-inline Regex::Flat::Charset_t MakeCharset(value ocaml_symbol)
+Regex::Flat::Charset_t MakeCharset(value ocaml_symbol)
 {
-    char lo = static_cast<char>(Int_val(Field(ocaml_symbol, 0)));
-    char hi = static_cast<char>(Int_val(Field(ocaml_symbol, 1)));
+    value ocaml_char_char_list = Field(ocaml_symbol, 0);
+    // bool inv = bool(Int_val(Field(ocaml_symbol, 1)));
+    Regex::Flat::Charset_t ret { {}, false };
+    auto& cset = ret.chars;
+
+    while ( ocaml_char_char_list != Val_emptylist )
+    {
+        value ocaml_range_item = Field(ocaml_char_char_list, 0);
+        int lo = (Int_val(Field(ocaml_range_item, 0)));
+        int hi = (Int_val(Field(ocaml_range_item, 1)));
+        for (int c = lo; c <= hi; ++c)
+        {
+            cset.insert(char(c));
+        }
+        ocaml_char_char_list = Field(ocaml_char_char_list, 1);
+    }
+    
     // todo : bool inv = static_cast<bool>(Bool_val(Field(ocaml_symbol, 2)));
 
-    return Regex::Flat::Charset_t{ lo, hi, false };
+    return ret;
 }
 
 

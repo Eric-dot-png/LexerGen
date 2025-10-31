@@ -43,6 +43,14 @@ module Token = struct
     | LET
     | PLUS
 
+  type t = {
+    kind      : token;
+    abs_start : int;
+    len       : int;
+    line      : int; 
+    column    : int;
+  }
+
   (* ------------------------------------------------------------------ *)
   (* Pretty printing                                                       *)
   (* ------------------------------------------------------------------ *)

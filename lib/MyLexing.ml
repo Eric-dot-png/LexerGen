@@ -19,13 +19,17 @@ module MyLexing = struct
   let fmt_failwith = MyUtil.fmt_failwith
 
   let tokenize (str : string) = 
-    let len = String.length str in
-    let pos = ref 0 in 
+    let len    = String.length str in
+    let pos    = ref 0 in 
+    let line   = ref 0 in
+    let column = ref 0 in 
 
     let next() = if !pos < len then Some str.[!pos] else None in 
     let peek() = if (!pos + 1) < len then Some str.[!pos+1] else None in
     
-    let adv() = pos := !pos + 1 in 
+    let newline() = line := !line + 1; column := 0 in
+
+    let adv() = pos := !pos + 1; column := !column + 1 in  
 
     let match_while (continue : char option -> bool) =
       let start = !pos in 
@@ -40,7 +44,8 @@ module MyLexing = struct
     let rec lex () = 
       match next() with  
       | None | Some '\x00' -> Token.EOF
-      | Some (' ' | '\n' | '\t') -> let _ = adv () in lex ()
+      | Some (' ' | '\t' | '\r' ) -> adv (); lex ()
+      | Some '\n' -> adv(); newline(); lex ()
       | Some ':' -> Token.COLON
       | Some '|' -> Token.BAR
       | Some '*' -> Token.STAR
@@ -72,8 +77,8 @@ module MyLexing = struct
         let continue = fun c -> 
           match c with 
           | Some '}' when !ident = 0 -> false
-          | Some '}' when !ident > 0 -> let _ = ident := !ident-1 in true
-          | Some '{' -> let _ = ident := !ident+1 in true          
+          | Some '}' when !ident > 0 -> ident := !ident-1; true
+          | Some '{' -> ident := !ident+1; true          
           | None -> false
           | _ -> true
         in let matched,found = match_while continue in 
@@ -111,7 +116,7 @@ module MyLexing = struct
     in
     let rec aux toks = 
       let tok = lex () in
-      let _ = adv () in
+      adv ();
       match tok with 
       | Token.EOF -> List.rev (tok :: toks)
       | _ -> aux (tok :: toks)
