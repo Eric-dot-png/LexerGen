@@ -129,18 +129,18 @@ module MyParsing = struct
       )
       | tok :: _ -> fmt_failwith "Unexpected token : %s, expected atomic." (Token.string_of_token tok)
       | _ -> failwith "Missing atomic"
-    and parse_range_items (toks : Token.token list) = 
-      let left, toks = parse_range_item toks in 
-      match toks with
-      | (Token.RBRACKET :: _ as rest) -> left, rest
-      | _ -> 
-        let right,rest = parse_range_items toks in
-        Union (left, right), rest
+    and parse_range_items (toks : Token.token list) =
+      let rec aux range toks =  
+        let left, toks = parse_range_item toks in 
+        match toks with
+        | (Token.RBRACKET :: _ as rest) -> (Regex.Charset (left::range)), rest
+        | _ -> aux (left :: range) toks
+      in aux [] toks 
     and parse_range_item (toks : Token.token list) = 
       match toks with
       | Token.CHAR(left) :: Token.DASH :: Token.CHAR(right) :: rest -> 
-        Charset (left,right), rest 
-      | Token.CHAR(c) :: rest -> Char c, rest 
+        (left,right), rest 
+      | Token.CHAR(c) :: rest -> (c,c), rest 
       | tok :: _ -> fmt_failwith "Expected character token, not %s" (Token.string_of_token tok)
       | [] -> failwith "Range must not be empty"
     in 
