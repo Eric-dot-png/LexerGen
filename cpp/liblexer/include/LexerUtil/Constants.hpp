@@ -7,13 +7,17 @@
 #include <limits>
 #include <cstddef>
 #include <unordered_set>
-#include <ranges>
 
 /// @brief alphabet of this library. Note that '\0' is not included, nore 127
-constexpr std::ranges::view auto ALPHABET = std::views::iota(char(1), char(127));
+const std::unordered_set<char> ALPHABET = []() {
+    std::unordered_set<char> ret; 
+    for (int i = 1; i <127; ++i) ret.insert(char(i));
+    return ret;
+}();
+
 
 //// @brief size of the alphabet of this library
-constexpr size_t ALPHABET_SIZE = std::ranges::distance(ALPHABET);
+const size_t ALPHABET_SIZE = ALPHABET.size();
 
 /// @brief state not having a rule associated with it
 constexpr size_t NO_CASE_TAG = std::numeric_limits<std::size_t>::max();

@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <string_view>
 
 struct NFA;
 
@@ -28,6 +29,10 @@ public:
     const std::vector<State>& States() const;
 
     static void Minimize(DFA& dfa);
+
+    size_t Match(std::string_view input) const;
+
+    std::vector<size_t> Trace(std::string_view input) const;
 
 private:
     DFA();

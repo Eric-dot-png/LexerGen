@@ -93,7 +93,7 @@ private:
     /// @param inverted if the range is to be inverted (\Sigma - S)
     /// @param nfaStates the nfa states
     /// @return the constructed fragment 
-    static Fragment MakeCharset(char lo, char hi, bool inverted, std::vector<NFA::State>& nfaStates);
+    static Fragment MakeCharset(const std::unordered_set<char>& chars, bool inverted, std::vector<NFA::State>& nfaStates);
 
     /// @brief method to create a literal/string fragment
     /// @param string the string to create the fragment from 

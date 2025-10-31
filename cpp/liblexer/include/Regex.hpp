@@ -8,6 +8,7 @@
 #include <variant>
 #include <vector>
 #include <ostream>
+#include <unordered_set>
 
 namespace Regex
 {
@@ -22,7 +23,7 @@ namespace Regex
     /** @brief NS for Flattened regex types. These types are not recursive 
      *         (non-ast), and are meant for postorder traversal
      */
-     namespace Flat
+    namespace Flat
     {
         /// 
         /// Terminal FlatRegex Types
@@ -30,7 +31,20 @@ namespace Regex
 
         struct Char_t { char value; };
         struct Literal_t { std::string_view value; };
-        struct Charset_t { char lo, hi; bool inverted; };
+        struct Charset_t { 
+            Charset_t(char lo, char hi, bool inv) 
+                : chars({}), inverted(inv) 
+            {
+                for (int i = int(lo); i <= int(hi); ++i)
+                    chars.insert(char(i));
+            }
+            Charset_t(const std::unordered_set<char>& set={}, bool inv=false)
+                : chars(set), inverted(inv)
+            { }
+
+            std::unordered_set<char> chars; bool inverted; 
+        
+        };
 
         ///
         /// Non-Terminal FlatRegex Types

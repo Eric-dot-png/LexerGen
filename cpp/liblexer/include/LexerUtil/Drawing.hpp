@@ -34,7 +34,7 @@ static void DrawStateMachine(const SM_t& sm, const char * const outFilePath)
         labelMap[state.index];
         for (const auto& [symbol, result] : state.transitions)
         {
-            labelMap[state.index][result] += EscapedDot(symbol);
+            labelMap[state.index][result] += Escaped(symbol);
         }
         for (const auto& [result, label] : labelMap[state.index])
         {
