@@ -56,6 +56,7 @@ module MyLexing = struct
       | Some ']' -> Token.RBRACKET
       | Some '=' -> Token.EQUALS
       | Some '+' -> Token.PLUS
+      | Some '^' -> Token.CAROT
       | Some '_' when not (MyUtil.is_alnum_ex (peek())) -> Token.NONE_PATT
       | Some '\'' ->
       (

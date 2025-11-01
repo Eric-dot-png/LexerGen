@@ -274,8 +274,8 @@ inline Regex::Flat::Literal_t MakeLiteral(value ocaml_symbol,
 Regex::Flat::Charset_t MakeCharset(value ocaml_symbol)
 {
     value ocaml_char_char_list = Field(ocaml_symbol, 0);
-    // bool inv = bool(Int_val(Field(ocaml_symbol, 1)));
-    Regex::Flat::Charset_t ret { {}, false };
+    bool inv = bool(Int_val(Field(ocaml_symbol, 1)));
+    Regex::Flat::Charset_t ret { {}, inv };
     auto& cset = ret.chars;
 
     while ( ocaml_char_char_list != Val_emptylist )

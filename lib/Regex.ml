@@ -19,7 +19,7 @@ module Regex = struct
   | Union of ast * ast
   | Concat of ast * ast
   | Star of ast 
-  | Charset of (char * char) list
+  | Charset of (char * char) list * bool
 
 
   (** [string_of_ast r] returns the string representation of the in-order
@@ -37,7 +37,7 @@ module Regex = struct
     | Concat (r1,r2) -> 
       Printf.sprintf "(%s · %s)" (string_of_ast r1) (string_of_ast r2)
     | Star r -> Printf.sprintf "(%s *)" (string_of_ast r)
-    | Charset (cs) ->
+    | Charset (cs, inv) ->
     (
       let ss = List.map (
         fun (c1,c2) -> 
@@ -48,7 +48,7 @@ module Regex = struct
               (MyUtil.descape c1) (MyUtil.descape c2)) cs 
       in
       let joined = String.concat ", " ss in
-      Printf.sprintf "[%s]" joined
+      Printf.sprintf "[%s%s]" (if inv then "^" else "") joined 
     )
 
     
@@ -58,7 +58,7 @@ module Regex = struct
   type flat = 
   | CharF of char
   | LiteralF of string
-  | CharsetF of (char * char) list 
+  | CharsetF of (char * char) list * bool
   | UnionF
   | ConcatF
   | StarF
@@ -72,7 +72,7 @@ module Regex = struct
     match re with
     | CharF c -> Printf.sprintf "'%s'" (MyUtil.descape c)
     | LiteralF s ->  Printf.sprintf "\"%s\"" s
-    | CharsetF (cs) -> 
+    | CharsetF (cs, inv) -> 
     (
       let ss = List.map (
         fun (c1,c2) -> 
@@ -83,7 +83,7 @@ module Regex = struct
               (MyUtil.descape c1) (MyUtil.descape c2)) cs 
       in
       let joined = String.concat ", " ss in
-      Printf.sprintf "[%s]" joined
+      Printf.sprintf "[%s%s]" (if inv then "^" else "") joined
     )
     | UnionF -> "|" 
     | ConcatF -> "·" 
@@ -105,8 +105,8 @@ module Regex = struct
       | [] -> result, len, numStr
       | Char c :: todo -> aux todo ((CharF c)::result) (len+1) numStr
       | Literal s :: todo -> aux todo ((LiteralF s)::result) (len+1) (numStr)
-      | Charset (cs) :: todo -> 
-        aux todo (CharsetF (cs)::result) (len+1) numStr
+      | Charset (cs, inv) :: todo -> 
+        aux todo (CharsetF (cs, inv)::result) (len+1) numStr
       | Union (left, right) :: todo -> 
         aux (right::left::todo) (UnionF::result) (len+1) numStr
       | Concat (left,right) :: todo -> 

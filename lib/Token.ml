@@ -42,6 +42,7 @@ module Token = struct
     | RBRACKET
     | LET
     | PLUS
+    | CAROT
 
   type t = {
     kind      : token;
@@ -80,13 +81,6 @@ module Token = struct
     | RBRACKET -> "RBRACKET"
     | LET -> "LET"
     | PLUS -> "PLUS"
-
-    (** [hash tok] is the hash function to hash tokens.
-        @param tok token that must be an identifier token
-        @return the hash value for the identifier string contained by tok *)
-    let hash (tok : token) = 
-      match tok with
-      | ID(id) -> Hashtbl.hash id 
-      | _ -> MyUtil.fmt_failwith "hash only hashes ids, not \"%s\"" 
-          (string_of_token tok)
+    | CAROT -> "CAROT"
+    
 end

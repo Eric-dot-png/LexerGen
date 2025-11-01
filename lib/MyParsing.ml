@@ -115,7 +115,8 @@ module MyParsing = struct
       )
       | Token.LBRACKET :: toks -> 
       (
-        let items, rest = parse_range_items toks in
+        let inv = (match toks with Token.CAROT :: _ -> true | _ -> false) in
+        let items, rest = parse_range_items toks inv in
         match rest with 
         | Token.RBRACKET :: rest -> items, rest
         | _ -> failwith "Unmatched '['"
@@ -129,11 +130,11 @@ module MyParsing = struct
       )
       | tok :: _ -> fmt_failwith "Unexpected token : %s, expected atomic." (Token.string_of_token tok)
       | _ -> failwith "Missing atomic"
-    and parse_range_items (toks : Token.token list) =
+    and parse_range_items (toks : Token.token list) (inv : bool)=
       let rec aux range toks =  
         let left, toks = parse_range_item toks in 
         match toks with
-        | (Token.RBRACKET :: _ as rest) -> (Regex.Charset (left::range)), rest
+        | (Token.RBRACKET :: _ as rest) -> (Regex.Charset (left::range, inv)), rest
         | _ -> aux (left :: range) toks
       in aux [] toks 
     and parse_range_item (toks : Token.token list) = 
